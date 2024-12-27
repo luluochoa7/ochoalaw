@@ -1,101 +1,145 @@
 import Image from "next/image";
+import Link from 'next/link'
 
 export default function Home() {
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+      <div className="min-h-screen flex flex-col">
+        {/* Navbar */}
+        <header className="bg-gray-800 text-white fixed top-0 left-0 w-full z-50">
+          <div className="container mx-auto flex justify-between items-center p-4">
+            {/* Logo */}
+            <div className="text-xl font-bold">
+              <Link href="#home">Humberto Ochoa</Link>
+            </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+            {/* Navigation Links */}
+            <nav>
+              <ul className="flex space-x-6">
+                <li>
+                  <Link href="#about" className="hover:text-gray-300">
+                    About
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#services" className="hover:text-gray-300">
+                    Services
+                  </Link>
+                </li>
+                <li>
+                  <Link href="#testimonials" className="hover:text-gray-300">
+                    Testimonials
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/contact-us" className="hover:text-gray-300">
+                    Contact
+                  </Link>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </header>
+
+        {/* Hero Section with Chicago Skyline */}
+        <section
+            id="home"
+            className="relative bg-gray-800 text-white min-h-screen flex items-center justify-center"
+            style={{
+              backgroundImage: "url('/chicago-skyline.jpg')", // Add skyline photo to /public folder
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+        >
+          <div className="bg-black/50 w-full h-full absolute top-0 left-0"></div>
+          <div className="relative z-10 text-center px-8">
+            <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+              Welcome to Ochoa Law Firm
+            </h1>
+            <p className="text-lg sm:text-xl">
+              Providing professional and reliable legal services tailored to your needs.
+            </p>
+            <button className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded text-white font-medium">
+              Schedule a Consultation
+            </button>
+          </div>
+        </section>
+
+        {/* About Section with Photo */}
+        <section id="about" className="py-16 px-8 bg-gray-100">
+          <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+            <div>
+              <h2 className="text-3xl font-bold mb-4">About Us</h2>
+              <p className="text-lg text-gray-700">
+                With years of experience in various areas of law, Ochoa Law Firm is
+                committed to ensuring justice and providing personalized legal advice.
+              </p>
+            </div>
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+                src="/about-photo.jpg" // Add an image to /public folder
+                alt="About Us"
+                width={500}
+                height={350}
+                className="rounded shadow-lg"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+        </section>
+
+        {/* Services Section */}
+        <section id="services" className="py-16 px-8">
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-3xl font-bold text-center mb-8">Our Services</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="bg-white shadow-lg p-6 rounded">
+                <h3 className="text-xl font-semibold mb-2">Business Law</h3>
+                <p className="text-gray-600">
+                  Legal guidance for entrepreneurs and established businesses, from contracts to compliance.
+                </p>
+              </div>
+              <div className="bg-white shadow-lg p-6 rounded">
+                <h3 className="text-xl font-semibold mb-2">Family Law</h3>
+                <p className="text-gray-600">
+                  Support for families in need, including divorce, custody, and adoption cases.
+                </p>
+              </div>
+              <div className="bg-white shadow-lg p-6 rounded">
+                <h3 className="text-xl font-semibold mb-2">Real Estate Law</h3>
+                <p className="text-gray-600">
+                  Expert advice on property transactions, disputes, and zoning regulations.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Testimonials Section */}
+        <section id="testimonials" className="py-16 px-8 bg-gray-100">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-8">What Our Clients Say</h2>
+            <blockquote className="text-lg text-gray-700 italic">
+              I couldn’t have asked for a better experience. Humberto Ochoa was professional, thorough, and truly cared about my case.
+            </blockquote>
+            <p className="mt-4 font-semibold">- Client Name</p>
+          </div>
+        </section>
+
+        {/* Contact Section with External Link */}
+        <section id="contact" className="py-16 px-8 text-center bg-blue-600 text-white">
+          <h2 className="text-3xl font-bold mb-4">Let Us Help You</h2>
+          <p className="text-lg">
+            Contact us today to schedule your consultation and take the first step toward resolving your legal matters.
+          </p>
+          <Link
+              href="/contact-us"
+              className="mt-6 inline-block px-6 py-3 bg-white text-blue-600 hover:bg-gray-200 rounded font-medium"
           >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+            Contact Us
+          </Link>
+        </section>
+
+        {/* Footer */}
+        <footer className="bg-gray-800 text-white py-8 text-center">
+          <p>&copy; {new Date().getFullYear()} Ochoa Law Firm. All rights reserved.</p>
+        </footer>
+      </div>
   );
 }
