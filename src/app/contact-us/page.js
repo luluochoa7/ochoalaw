@@ -8,7 +8,7 @@ export default function ContactUs() {
                 <div className="container mx-auto flex justify-between items-center p-4">
                     {/* Logo */}
                     <div className="text-xl font-bold">
-                        <Link href="/">Humberto Ochoa</Link>
+                        <Link href="/">Ochoa Law</Link>
                     </div>
 
                     {/* Navigation Links */}
@@ -40,10 +40,10 @@ export default function ContactUs() {
             </header>
 
             {/* Contact Page Content */}
-            <div className="mt-20 flex items-center justify-center p-8">
+            <div className="mt-20 flex items-center justify-center  p-8">
                 <div className="max-w-5xl w-full bg-white shadow-lg rounded-lg overflow-hidden">
                     {/* Header Section */}
-                    <div className="bg-blue-600 text-white py-6 px-8 text-center">
+                    <div className="bg-blue-500 text-white py-6 px-8 text-center">
                         <h1 className="text-3xl font-bold">Contact Us</h1>
                         <p className="mt-2 text-lg">
                             We’re here to help. Fill out the form below, and we’ll get back to you as soon as possible.
@@ -132,7 +132,7 @@ export default function ContactUs() {
                             <div className="text-center">
                                 <button
                                     type="submit"
-                                    className="w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm"
+                                    className="w-full sm:w-auto px-6 py-3 bg-blue-500 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm"
                                 >
                                     Submit
                                 </button>
@@ -146,13 +146,13 @@ export default function ContactUs() {
                             Contact Information
                         </h2>
                         <p className="mt-2 text-gray-600">
-                            <strong>Phone:</strong> (123) 456-7890
+                            <strong>Phone:</strong> (773) 941-1906
                         </p>
                         <p className="mt-1 text-gray-600">
-                            <strong>Email:</strong> info@lawfirm.com
+                            <strong>Email:</strong> ochoajr16@gmail.com
                         </p>
                         <p className="mt-1 text-gray-600">
-                            <strong>Address:</strong> 123 Main Street, Chicago, IL 60601
+                            <strong>Address:</strong> 5145 Main Street, Chicago, IL 60601
                         </p>
                     </div>
                 </div>

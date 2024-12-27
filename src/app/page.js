@@ -9,11 +9,11 @@ export default function Home() {
           <div className="container mx-auto flex justify-between items-center p-4">
             {/* Logo */}
             <div className="text-xl font-bold">
-              <Link href="#home">Humberto Ochoa</Link>
+              <Link href="#home">Ochoa Law</Link>
             </div>
 
             {/* Navigation Links */}
-            <nav>
+            <nav className="hidden md:flex space-x-6">
               <ul className="flex space-x-6">
                 <li>
                   <Link href="#about" className="hover:text-gray-300">
@@ -53,14 +53,16 @@ export default function Home() {
           <div className="bg-black/50 w-full h-full absolute top-0 left-0"></div>
           <div className="relative z-10 text-center px-8">
             <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-              Welcome to Ochoa Law Firm
+              Welcome to Ochoa Law
             </h1>
             <p className="text-lg sm:text-xl">
               Providing professional and reliable legal services tailored to your needs.
             </p>
-            <button className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded text-white font-medium">
-              Schedule a Consultation
-            </button>
+            <Link href={"/contact-us"}>
+              <button className="mt-6 px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded text-white font-medium">
+                Schedule a Consultation
+              </button>
+            </Link>
           </div>
         </section>
 
@@ -68,7 +70,7 @@ export default function Home() {
         <section id="about" className="py-16 px-8 bg-gray-100">
           <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-4">About Us</h2>
+              <h2 className="text-3xl font-bold text-blue-800 mb-4">About Us</h2>
               <p className="text-lg text-gray-700">
                 With years of experience in various areas of law, Ochoa Law Firm is
                 committed to ensuring justice and providing personalized legal advice.
@@ -87,22 +89,22 @@ export default function Home() {
         {/* Services Section */}
         <section id="services" className="py-16 px-8">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-3xl font-bold text-center mb-8">Our Services</h2>
+            <h2 className="text-3xl font-bold text-center text-blue-800 mb-8">Our Services</h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
               <div className="bg-white shadow-lg p-6 rounded">
-                <h3 className="text-xl font-semibold mb-2">Business Law</h3>
+                <h3 className="text-xl font-semibold text-blue-800 mb-2">Immigration Law</h3>
                 <p className="text-gray-600">
-                  Legal guidance for entrepreneurs and established businesses, from contracts to compliance.
+                  Legal guidance for any immigration related issues.
                 </p>
               </div>
               <div className="bg-white shadow-lg p-6 rounded">
-                <h3 className="text-xl font-semibold mb-2">Family Law</h3>
+                <h3 className="text-xl font-semibold text-blue-800 mb-2">Family Law</h3>
                 <p className="text-gray-600">
                   Support for families in need, including divorce, custody, and adoption cases.
                 </p>
               </div>
               <div className="bg-white shadow-lg p-6 rounded">
-                <h3 className="text-xl font-semibold mb-2">Real Estate Law</h3>
+                <h3 className="text-xl font-semibold text-blue-800 mb-2">Real Estate Law</h3>
                 <p className="text-gray-600">
                   Expert advice on property transactions, disputes, and zoning regulations.
                 </p>
@@ -114,11 +116,11 @@ export default function Home() {
         {/* Testimonials Section */}
         <section id="testimonials" className="py-16 px-8 bg-gray-100">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-3xl font-bold mb-8">What Our Clients Say</h2>
+            <h2 className="text-3xl font-bold text-blue-800 mb-8">What Our Clients Say</h2>
             <blockquote className="text-lg text-gray-700 italic">
               I couldn’t have asked for a better experience. Humberto Ochoa was professional, thorough, and truly cared about my case.
             </blockquote>
-            <p className="mt-4 font-semibold">- Client Name</p>
+            <p className="mt-4 font-semibold">- Bernie Sanders</p>
           </div>
         </section>
 
