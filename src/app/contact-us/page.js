@@ -12,7 +12,7 @@ export default function ContactUs() {
                     </div>
 
                     {/* Navigation Links */}
-                    <nav>
+                    <nav className="hidden md:flex space-x-6">
                         <ul className="flex space-x-6">
                             <li>
                                 <Link href="/" className="hover:text-gray-300">
