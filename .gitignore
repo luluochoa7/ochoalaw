@@ -1,9 +1,9 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# === NODE / JS MONOREPO STUFF ===
+node_modules/
+**/node_modules/
 
-# dependencies
-/node_modules
-/frontend/node_modules
-/.pnp
+# Yarn, PNPM, NPM
+.pnp/
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -11,32 +11,51 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# Testing
+coverage/
 
-# next.js
-/.next/
-/out/
+# NEXT.js
+.next/
+out/
+build/
 
-# production
-/build
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
-# misc
-.DS_Store
-*.pem
-
-# debug
+# Debug logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Env files
 .env*
+.vercel/
 
-# vercel
-.vercel
+# OS
+.DS_Store
+*.pem
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# === PYTHON BACKEND STUFF ===
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+*.egg-info/
+*.log
+*.pot
+*.mo
+
+# Python virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# FASTAPI-specific
+*.uvicorn.log
+
+# IDEs
+.vscode/
+.idea/
