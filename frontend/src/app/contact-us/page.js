@@ -30,7 +30,7 @@ export default function ContactUs() {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/contact-us" className="hover:text-gray-300">
+                                <Link href="/contact" className="hover:text-gray-300">
                                     Contact
                                 </Link>
                             </li>
