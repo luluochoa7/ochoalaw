@@ -53,7 +53,7 @@ export default function ContactUs() {
                     {/* Contact Form Section */}
                     <div className="p-8">
                         <form
-                            action="https://ochoalaw.onrender.com/contact-us"
+                            action="https://ochoalaw.onrender.com/contact"
                             method="POST"
                             className="space-y-6"
                         >
