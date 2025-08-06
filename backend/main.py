@@ -27,7 +27,7 @@ def get_db():
 def root():
     return {"message": "API is running"}
 
-@app.post("/contact-us")
+@app.post("/contact")
 def contact_us(
     name: str = Form(...),
     email: str = Form(...),
@@ -38,5 +38,6 @@ def contact_us(
     submission = ContactSubmission(name=name, email=email, phone=phone, message=message)
     db.add(submission)
     db.commit()
+    print("🔥 Contact received:", name, email, phone, message)
     return {"message": "Saved to Supabase"}
 
