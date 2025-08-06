@@ -12,7 +12,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://ochoalaw.vercel.app"],  # Update with actual frontend domain in production,
     allow_credentials=True,
-    allow_methods=["POST"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
