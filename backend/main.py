@@ -1,5 +1,10 @@
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+
+from database import SessionLocal
+from models import ContactSubmission
+
 
 app = FastAPI()
 
@@ -7,21 +12,26 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["https://ochoalaw.vercel.app"],  # Update with actual frontend domain in production,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["POST"],
     allow_headers=["*"],
 )
 
-# @app.get("/")
-# def read_root():
-#     return {"Hello": "World"}   
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.post("/contact-us")
 def contact_us(
     name: str = Form(...),
     email: str = Form(...),
     phone: str = Form(None),  # Optional field
-    message: str = Form(...)
+    message: str = Form(...),
+    db: Session = Depends(get_db)
 ):
-    # Process the form data here
-    # For example, log the data or send an email
-    return {"status": "success", "message": "Thank you for contacting us!"}
+    submission = ContactSubmission(name=name, email=email, phone=phone, message=message)
+    db.add(submission)
+    db.commit()
+    return {"message": "Saved to Supabase"}

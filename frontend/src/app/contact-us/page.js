@@ -53,7 +53,7 @@ export default function ContactUs() {
                     {/* Contact Form Section */}
                     <div className="p-8">
                         <form
-                            action="/thank-you" // Redirect to a "thank you" page after submission
+                            action="http://localhost:8000/contact-us"
                             method="POST"
                             className="space-y-6"
                         >
