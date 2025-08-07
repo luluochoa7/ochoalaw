@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-
+from sqlalchemy import text
 from database import SessionLocal
 from models import ContactSubmission
 
@@ -30,7 +30,7 @@ def root():
 @app.get("/test-db")
 def test_db(db: Session = Depends(get_db)):
     try:
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         return {"message": "DB connection successful"}
     except Exception as e:
         return {"error": str(e)}
