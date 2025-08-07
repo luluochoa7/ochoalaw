@@ -27,6 +27,14 @@ def get_db():
 def root():
     return {"message": "API is running"}
 
+@app.get("/test-db")
+def test_db(db: Session = Depends(get_db)):
+    try:
+        db.execute("SELECT 1")
+        return {"message": "DB connection successful"}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.post("/contact")
 def contact(
     name: str = Form(...),
