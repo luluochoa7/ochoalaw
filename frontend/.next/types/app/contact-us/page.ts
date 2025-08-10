@@ -1,4 +1,4 @@
-// File: /Users/lmochoa/Desktop/OchoaBot/devWork/my-nextjs-app/src/app/contact-us/page.js
+// File: /Users/lmochoa/Desktop/OchoaBot/devWork/ochoalaw/frontend/src/app/contact-us/page.js
 import * as entry from '../../../../src/app/contact-us/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

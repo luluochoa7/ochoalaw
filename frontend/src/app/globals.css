@@ -2,20 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Smooth in-page anchor scrolling (e.g., #services) */
+html {
+  scroll-behavior: smooth;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Remove the old manual body colors (we're using Tailwind on <body>) */
+/* Keep a clean, consistent base look */
+@layer base {
+  ::selection {
+    @apply bg-blue-600 text-white;
+  }
+
+  h1, h2, h3 {
+    @apply tracking-tight;
+  }
+
+  a {
+    @apply transition-colors;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Nicer container padding by default */
+@layer components {
+  .container {
+    @apply mx-auto px-4 sm:px-6;
+  }
 }
