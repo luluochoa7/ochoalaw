@@ -1,22 +1,10 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+// app/portal/page.js
 import Navbar from "../components/Navbar";
+import RoleSelector from "./RoleSelector";
 
-export default function Portal() {
-  const searchParams = useSearchParams();
-  const initialRole = useMemo(() => {
-    const r = (searchParams.get("role") || "").toLowerCase();
-    return r === "lawyer" ? "lawyer" : "client";
-  }, [searchParams]);
-  const [role, setRole] = useState(initialRole);
-
-  useEffect(() => {
-    // keep role in sync if URL changes
-    const r = (searchParams.get("role") || "").toLowerCase();
-    setRole(r === "lawyer" ? "lawyer" : "client");
-  }, [searchParams]);
+export default function PortalPage({ searchParams }) {
+  const roleParam = (searchParams?.role || "").toString().toLowerCase();
+  const initialRole = roleParam === "lawyer" ? "lawyer" : "client";
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -35,25 +23,11 @@ export default function Portal() {
         <section className="-mt-10 pb-16">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-lg rounded-2xl bg-white shadow-xl border p-8">
-              {/* Role select */}
-              <label className="block text-sm font-medium text-slate-800">I am a</label>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setRole("client")}
-                  className={`rounded-lg border px-4 py-2 ${role === "client" ? "border-blue-600 bg-blue-50" : "hover:bg-slate-50"}`}
-                >
-                  Client
-                </button>
-                <button
-                  onClick={() => setRole("lawyer")}
-                  className={`rounded-lg border px-4 py-2 ${role === "lawyer" ? "border-blue-600 bg-blue-50" : "hover:bg-slate-50"}`}
-                >
-                  Lawyer
-                </button>
-              </div>
+              {/* Role selector (client) */}
+              <RoleSelector initialRole={initialRole} />
 
               {/* Login form (placeholder) */}
-              <form className="mt-6 space-y-4" onSubmit={(e) => e.preventDefault()}>
+              <form className="mt-6 space-y-4" /* action="/api/auth/login" method="POST" (later) */>
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-slate-800">
                     Email
@@ -84,11 +58,11 @@ export default function Portal() {
                   className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
                   title="This is a placeholder. Hook up auth later."
                 >
-                  Sign In as {role === "lawyer" ? "Lawyer" : "Client"}
+                  Sign In
                 </button>
 
                 <p className="text-xs text-slate-500 text-center">
-                  You’ll be routed to the {role === "lawyer" ? "Lawyer" : "Client"} Dashboard after login.
+                  You’ll be routed to your dashboard after login.
                 </p>
               </form>
 
