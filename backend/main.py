@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -79,7 +80,10 @@ def contact(
         db.commit()
         db.refresh(submission)
 
-        return {"message": "Saved to Neon"}
+        return RedirectResponse(
+            url="https://ochoalaw.vercel.app/thank-you",
+            status_code=303
+        )
 
     except Exception as e:
         db.rollback()
