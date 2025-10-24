@@ -1,10 +1,7 @@
 // app/portal/page.js
 import Navbar from "../components/Navbar";
-import RoleSelector from "./RoleSelector";
 
 export default function PortalPage({ searchParams }) {
-  const roleParam = (searchParams?.role || "").toString().toLowerCase();
-  const initialRole = roleParam === "lawyer" ? "lawyer" : "client";
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -23,8 +20,6 @@ export default function PortalPage({ searchParams }) {
         <section className="-mt-10 pb-16">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-lg rounded-2xl bg-white shadow-xl border p-8">
-              {/* Role selector (client) */}
-              <RoleSelector initialRole={initialRole} />
 
               {/* Login form (placeholder) */}
               <form className="mt-6 space-y-4" /* action="/api/auth/login" method="POST" (later) */>
