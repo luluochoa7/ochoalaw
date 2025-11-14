@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getToken, clearToken } from "@/lib/auth";
+import { getToken, clearToken } from "frontend/src/app/lib/auth";
 import { useRouter } from "next/navigation";
 
 export default function Navbar() {

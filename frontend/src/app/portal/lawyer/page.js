@@ -1,7 +1,7 @@
 "use client";
 
-import Navbar from "@/components/Navbar";
-import RequireAuth from "@/components/RequireAuth";
+import Navbar from "frontend/src/app/components/Navbar";
+import RequireAuth from "frontend/src/app/components/RequireAuth";
 
 export default function LawyerDashboardPage() {
   return (
