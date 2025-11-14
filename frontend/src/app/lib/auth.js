@@ -1,8 +1,8 @@
-// lib/auth.js
+// src/lib/auth.js
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const TOKEN_KEY = "access_token";
 
-// store token in localStorage (MVP – later we can move to HttpOnly cookies)
+// Store token in localStorage (MVP – later we can move to HttpOnly cookies)
 export function saveToken(token) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(TOKEN_KEY, token);
@@ -26,6 +26,8 @@ export async function authFetch(path, init = {}) {
   return fetch(`${API}${path}`, { ...init, headers });
 }
 
+// --- AUTH HELPERS --- //
+
 // Call FastAPI /login, then save token
 export async function loginWithEmail(email, password) {
   const res = await fetch(`${API}/login`, {
@@ -35,6 +37,8 @@ export async function loginWithEmail(email, password) {
   });
 
   if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("Login failed:", res.status, txt);
     throw new Error("Invalid email or password.");
   }
 
@@ -47,15 +51,6 @@ export async function loginWithEmail(email, password) {
   return data.access_token;
 }
 
-// Call FastAPI /me (or /profile) to get user + role
-export async function fetchMe() {
-  const res = await authFetch("/me"); // or "/profile" if that's what you have
-  if (!res.ok) {
-    throw new Error("Not authenticated");
-  }
-  return res.json(); // expect { id, email, role } or similar
-}
-
 // Call FastAPI /signup to create a new user
 export async function signup(name, email, password) {
   const res = await fetch(`${API}/signup`, {
@@ -65,16 +60,21 @@ export async function signup(name, email, password) {
   });
 
   if (!res.ok) {
-    // Try to pull a useful error message
-    let msg = "Failed to create account.";
-    try {
-      const data = await res.json();
-      if (data?.detail) msg = data.detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new Error(msg);
+    const txt = await res.text().catch(() => "");
+    console.error("Signup failed:", res.status, txt);
+    throw new Error("Signup failed. This email may already be in use.");
   }
 
   return res.json(); // { message, user_id }
+}
+
+// Call FastAPI /profile to get user + role
+export async function fetchMe() {
+  const res = await authFetch("/profile"); // IMPORTANT: match backend route
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchMe failed:", res.status, txt);
+    throw new Error("Not authenticated");
+  }
+  return res.json(); // { email, role }
 }
