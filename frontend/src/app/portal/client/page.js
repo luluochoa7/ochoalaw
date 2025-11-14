@@ -1,8 +1,8 @@
 // app/portal/client/page.js
 "use client";
 
-import Navbar from "frontend/src/app/components/Navbar";
-import RequireAuth from "frontend/src/app/components/RequireAuth";
+import Navbar from "../../components/Navbar";
+import RequireAuth from "../../components/RequireAuth";
 
 export default function ClientDashboardPage() {
   return (

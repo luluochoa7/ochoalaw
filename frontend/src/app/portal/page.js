@@ -3,8 +3,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "frontend/src/app/components/Navbar";
-import { loginWithEmail, fetchMe } from "frontend/src/app/lib/auth";
+import Navbar from "../components/Navbar";
+import { loginWithEmail, fetchMe } from "../lib/auth";
 
 export default function PortalPage() {
   const router = useRouter();
