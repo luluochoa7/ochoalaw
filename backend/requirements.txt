@@ -22,3 +22,8 @@ typing_extensions==4.14.0
 uvicorn==0.34.3
 virtualenv==20.20.0
 virtualenv-clone==0.5.7
+
+# --- NEW for auth ---
+passlib[bcrypt]==1.7.4
+PyJWT==2.9.0
+

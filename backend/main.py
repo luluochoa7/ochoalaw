@@ -4,11 +4,15 @@ from typing import Optional
 from fastapi import FastAPI, Form, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from database import SessionLocal, engine
 from models import ContactSubmission, Base
+
+from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
+from models import User
 
 
 ALLOWED_ORIGINS = [
@@ -92,3 +96,69 @@ def contact(
             detail=f"Failed to save contact submission: {str(e)}"
         )
 
+# signup
+@app.post("/signup", status_code=status.HTTP_201_CREATED)
+def signup(
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    if db.query(User).filter(User.email == email.strip().lower()).first():
+        raise HTTPException(status_code=400, detail="Email already exists")
+
+    user = User(
+        name=name.strip(),
+        email=email.strip().lower(),
+        password_hash=hash_password(password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {"message": "User created successfully", "user_id": user.id}
+
+# login
+@app.post("/login")
+def login(
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == email.strip().lower()).first()
+    if not user or not verify_password(password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    access_token = create_access_token({"sub": str(user.id), "email": user.email, "role": user.role})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+security = HTTPBearer(auto_error=False)
+def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+):
+    # Require a Bearer token
+    if not credentials or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Verifies the JWT from the authorization header, loads the current user from the db or raises 401
+    token = credentials.credentials # bearer token
+    payload = decode_access_token(token) # verify signature and expiration
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+@app.get("/profile")
+def profile(user: User = Depends(get_current_user)):
+    return {"email" : user.email, "role": user.role}
+
+@app.get("/me")
+def me(User: User = Depends(get_current_user)):
+    return {"id": user.id, "email": user.email, "role": user.role}

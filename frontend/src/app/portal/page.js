@@ -1,7 +1,49 @@
 // app/portal/page.js
-import Navbar from "../components/Navbar";
+"use client";
 
-export default function PortalPage({ searchParams }) {
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "../components/Navbar";
+import { loginWithEmail, fetchMe } from "@/lib/auth";
+
+export default function PortalPage() {
+  const router = useRouter();
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const email = String(formData.get("email") || "").trim();
+    const password = String(formData.get("password") || "");
+
+    try {
+      if (!email || !password) {
+        throw new Error("Email and password are required.");
+      }
+
+      // 1) login → save token
+      await loginWithEmail(email, password);
+
+      // 2) fetch /me to get role
+      const me = await fetchMe(); // expects { role: "client" | "lawyer", ... }
+
+      // 3) redirect based on role
+      if (me.role === "lawyer") {
+        router.push("/portal/lawyer");
+      } else {
+        router.push("/portal/client");
+      }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Login failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -20,15 +62,14 @@ export default function PortalPage({ searchParams }) {
         <section className="-mt-10 pb-16">
           <div className="container mx-auto px-4">
             <div className="mx-auto max-w-lg rounded-2xl bg-white shadow-xl border p-8">
-
-              {/* Login form (placeholder) */}
-              <form className="mt-6 space-y-4" /* action="/api/auth/login" method="POST" (later) */>
+              <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-slate-800">
                     Email
                   </label>
                   <input
                     id="email"
+                    name="email"
                     type="email"
                     required
                     className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
@@ -41,6 +82,7 @@ export default function PortalPage({ searchParams }) {
                   </label>
                   <input
                     id="password"
+                    name="password"
                     type="password"
                     required
                     className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
@@ -48,12 +90,18 @@ export default function PortalPage({ searchParams }) {
                   />
                 </div>
 
+                {error && (
+                  <p className="text-sm text-red-600">
+                    {error}
+                  </p>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
-                  title="This is a placeholder. Hook up auth later."
+                  disabled={loading}
+                  className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  Sign In
+                  {loading ? "Signing in..." : "Sign In"}
                 </button>
 
                 <p className="text-xs text-slate-500 text-center">
