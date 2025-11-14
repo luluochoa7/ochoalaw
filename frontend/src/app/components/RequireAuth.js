@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchMe } from "@/lib/auth";
+import { fetchMe } from "../lib/auth";
 
 export default function RequireAuth({ children }) {
   const router = useRouter();
