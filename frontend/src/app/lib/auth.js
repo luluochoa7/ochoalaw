@@ -55,3 +55,26 @@ export async function fetchMe() {
   }
   return res.json(); // expect { id, email, role } or similar
 }
+
+// Call FastAPI /signup to create a new user
+export async function signup(name, email, password) {
+  const res = await fetch(`${API}/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ name, email, password }),
+  });
+
+  if (!res.ok) {
+    // Try to pull a useful error message
+    let msg = "Failed to create account.";
+    try {
+      const data = await res.json();
+      if (data?.detail) msg = data.detail;
+    } catch {
+      // ignore parse error
+    }
+    throw new Error(msg);
+  }
+
+  return res.json(); // { message, user_id }
+}
