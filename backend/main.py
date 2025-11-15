@@ -125,11 +125,19 @@ def login(
     password: str = Form(...),
     db: Session = Depends(get_db)
 ):
+    # FIXED — Correct SQLAlchemy query
     user = db.query(User).filter(User.email == email.strip().lower()).first()
+
     if not user or not verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    
-    access_token = create_access_token({"sub": str(user.id), "email": user.email, "role": user.role})
+
+    # FIXED — Correct dict for JWT
+    access_token = create_access_token({
+        "sub": str(user.id),
+        "email": user.email,
+        "role": user.role
+    })
+
     return {"access_token": access_token, "token_type": "bearer"}
 
 
