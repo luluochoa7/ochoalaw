@@ -1,5 +1,5 @@
 // src/lib/auth.js
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 const TOKEN_KEY = "access_token";
 
 // Store token in localStorage (MVP – later we can move to HttpOnly cookies)

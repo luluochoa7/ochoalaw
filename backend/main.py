@@ -165,7 +165,11 @@ def get_current_user(
 
 @app.get("/profile")
 def profile(user: User = Depends(get_current_user)):
-    return {"email" : user.email, "role": user.role}
+    return {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+    }
 
 @app.get("/me")
 def me(User: User = Depends(get_current_user)):
