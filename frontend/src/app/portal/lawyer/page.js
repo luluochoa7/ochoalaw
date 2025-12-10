@@ -1,13 +1,11 @@
 "use client";
 
-import Navbar from "../../components/Navbar";
 import RequireAuth from "../../components/RequireAuth";
 
 export default function LawyerDashboardPage() {
   return (
     <RequireAuth>
       <div className="min-h-screen flex flex-col bg-gray-50">
-        <Navbar />
 
         <main className="flex-1 pt-24 px-6">
           {/* Header */}

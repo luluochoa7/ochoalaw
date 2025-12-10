@@ -1,11 +1,8 @@
 import Link from "next/link";
-import Navbar from "../components/Navbar";
 
 export default function ContactUs() {
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" id="top">
-      {/* Shared Navbar (Ochoa & Co.) */}
-      <Navbar />
 
       {/* Header band — classic vibe */}
       <section className="mt-16 bg-gradient-to-br from-slate-900 via-slate-800 to-black">

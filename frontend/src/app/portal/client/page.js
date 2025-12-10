@@ -1,14 +1,12 @@
 // app/portal/client/page.js
 "use client";
 
-import Navbar from "../../components/Navbar";
 import RequireAuth from "../../components/RequireAuth";
 
 export default function ClientDashboardPage() {
   return (
     <RequireAuth>
       <div className="min-h-screen flex flex-col bg-gray-50">
-        <Navbar />
 
         <main className="flex-1 mt-16">
           {/* Header */}
