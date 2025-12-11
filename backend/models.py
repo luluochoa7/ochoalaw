@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, func, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base     
 
 Base = declarative_base()
@@ -34,6 +34,6 @@ class Matter(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     client = relationship("User", foreign_keys=[client_id], backref="client_matters")
-    lawyer = relationship("User", foreign_keys=[lawyer.id], backref="lawyer_matters")
-    
+    lawyer = relationship("User", foreign_keys=[lawyer_id], backref="lawyer_matters")
+
     
