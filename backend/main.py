@@ -13,6 +13,7 @@ from models import ContactSubmission, Base
 
 from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
 from models import User
+from models import Matter
 
 
 ALLOWED_ORIGINS = [
@@ -174,3 +175,52 @@ def profile(user: User = Depends(get_current_user)):
 @app.get("/me")
 def me(User: User = Depends(get_current_user)):
     return {"id": user.id, "email": user.email, "role": user.role}
+
+# Get matters for current client
+@app.get("/client/matters")
+def get_client_matters(user: User = Depends(get_current_user), db: Session = Depends(get_db )):
+    if user.role != "client":
+        raise HTTPException(status_code=403, detail="Not a client")
+    
+    matters = (
+        db.query(Matter)
+        .filter(Matter.client_id == user.id)
+        .order_by(Matter.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": m.id,
+            "title": m.title,
+            "status": m.status,
+            "description": m.description,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in matters
+    ]
+
+# Get matters for lawyers
+@app.get("/lawyer/matters")
+def get_lawyer_matters(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Not a lawyer")
+
+    matters = (
+        db.query(Matter)
+        .filter(Matter.lawyer_id == user.id)
+        .order(Matters.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": m.id,
+            "title": m.title,
+            "status": m.status,
+            "description": m.description,
+            "client_id": m.client_id,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in matters
+    ]

@@ -78,3 +78,15 @@ export async function fetchMe() {
   }
   return res.json(); // { email, role }
 }
+
+export async function fetchClientMatters() {
+  const res = await authFetch("/client/matters");
+  if (!res.ok) throw new Error("Failed to load matters");
+  return res.json();
+}
+
+export async function fetchLawyerMatters() {
+  const res = await authFetch("/lawyer/matters");
+  if (!res.ok) throw new Error("Failed to load matters");
+  return res.json();
+}

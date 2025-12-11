@@ -20,4 +20,20 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     role = Column(String, default='client')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class Matter(Base):
+    __tablename__ = "matters"
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    status = Column(String(50), nullable=False, default="open")
+    description = Column(String(1000), nullable=True)
+
+    client_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    lawyer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("User", foreign_keys=[client_id], backref="client_matters")
+    lawyer = relationship("User", foreign_keys=[lawyer.id], backref="lawyer_matters")
+    
     
