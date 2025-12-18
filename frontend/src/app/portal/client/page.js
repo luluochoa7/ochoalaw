@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import RequireAuth from "../../components/RequireAuth";
-import { fetchClientMatters, fetchMe } from "../../lib/auth";
+import { fetchMyMatters, fetchMe } from "../../lib/auth";
 
 export default function ClientDashboardPage() {
   const router = useRouter();
@@ -20,7 +20,7 @@ export default function ClientDashboardPage() {
           router.push("/portal");
           return;
         }
-        const data = await fetchClientMatters();
+        const data = await fetchMyMatters();
         setMatters(data || []);
       } catch (e) {
         setError("Could not load your matters.");

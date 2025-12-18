@@ -1,5 +1,5 @@
 // src/lib/auth.js
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:10000";
 const TOKEN_KEY = "access_token";
 
 // Store token in localStorage (MVP – later we can move to HttpOnly cookies)
@@ -79,14 +79,29 @@ export async function fetchMe() {
   return res.json(); // { email, role }
 }
 
-export async function fetchClientMatters() {
-  const res = await authFetch("/client/matters");
-  if (!res.ok) throw new Error("Failed to load matters");
+// Unified: fetch matters for current user based on role (backend handles it)
+export async function fetchMyMatters() {
+  const res = await authFetch("/matters");
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchMyMatters failed:", res.status, txt);
+    throw new Error("Failed to load matters");
+  }
   return res.json();
 }
 
-export async function fetchLawyerMatters() {
-  const res = await authFetch("/lawyer/matters");
-  if (!res.ok) throw new Error("Failed to load matters");
+export async function createMatter(payload) {
+  const res = await authFetch("/matters", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("createMatter failed:", res.status, txt);
+    throw new Error(txt || "Failed to create matter");
+  }
+
   return res.json();
 }

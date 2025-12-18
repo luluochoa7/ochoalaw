@@ -15,6 +15,8 @@ from auth_utils import hash_password, verify_password, create_access_token, deco
 from models import User
 from models import Matter
 
+from pydantic import BaseModel
+
 
 ALLOWED_ORIGINS = [
     "https://ochoalaw.vercel.app", 
@@ -173,7 +175,7 @@ def profile(user: User = Depends(get_current_user)):
     }
 
 @app.get("/me")
-def me(User: User = Depends(get_current_user)):
+def me(user: User = Depends(get_current_user)):
     return {"id": user.id, "email": user.email, "role": user.role}
 
 # Get matters for current client
@@ -209,7 +211,7 @@ def get_lawyer_matters(user: User = Depends(get_current_user), db: Session = Dep
     matters = (
         db.query(Matter)
         .filter(Matter.lawyer_id == user.id)
-        .order(Matters.created_at.desc())
+        .order_by(Matter.created_at.desc())
         .all()
     )
 
@@ -224,3 +226,69 @@ def get_lawyer_matters(user: User = Depends(get_current_user), db: Session = Dep
         }
         for m in matters
     ]
+
+# (Recommended) one unified endpoint: returns matters for current user based on role
+@app.get("/matters")
+def get_my_matters(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role == "lawyer":
+        q = db.query(Matter).filter(Matter.lawyer_id == user.id)
+    elif user.role == "client":
+        q = db.query(Matter).filter(Matter.client_id == user.id)
+    else:
+        raise HTTPException(status_code=403, detail="Invalid role")
+
+    matters = q.order_by(Matter.created_at.desc()).all()
+
+    return [
+        {
+            "id": m.id,
+            "title": m.title,
+            "status": m.status,
+            "description": m.description,
+            "client_id": m.client_id,
+            "lawyer_id": m.lawyer_id,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in matters
+    ]
+
+# Lawyer creates a matter for a client by email
+class MatterCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    client_email: str
+
+@app.post("/matters", status_code=201)
+def create_matter(
+    payload: MatterCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Only lawyers can create matters.")
+
+    client_email = payload.client_email.strip().lower()
+    client = db.query(User).filter(User.email == client_email).first()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found. Ask client to sign up first.")
+
+    matter = Matter(
+        title=payload.title.strip(),
+        description=(payload.description.strip() if payload.description else None),
+        status="Open",
+        client_id=client.id,
+        lawyer_id=user.id,
+    )
+    db.add(matter)
+    db.commit()
+    db.refresh(matter)
+
+    return {
+        "id": matter.id,
+        "title": matter.title,
+        "status": matter.status,
+        "description": matter.description,
+        "client_id": matter.client_id,
+        "lawyer_id": matter.lawyer_id,
+        "created_at": matter.created_at.isoformat() if matter.created_at else None,
+    }
