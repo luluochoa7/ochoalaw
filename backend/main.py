@@ -9,19 +9,39 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from database import SessionLocal, engine
-from models import ContactSubmission, Base
+from models import Base, ContactSubmission, User, Matter, Document 
 
 from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
-from models import User
-from models import Matter
 
 from pydantic import BaseModel
+
+import os
+from uuid import uuid4
+
+import boto3
 
 
 ALLOWED_ORIGINS = [
     "https://ochoalaw.vercel.app", 
     "http://localhost:3000"
     ]
+
+AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+S3_UPLOAD_PREFIX = os.getenv("S3_UPLOAD_PREFIX", "uploads")
+PRESIGNED_EXPIRATION = int(os.getenv("PRESIGNED_EXPIRATION_SECONDS", "900"))
+
+# Create the S3 client once at startup
+s3_client = boto3.client(
+    "s3",
+    region_name=AWS_REGION,
+    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+)
+
+# Optional sanity check at startup
+if not S3_BUCKET_NAME:
+    print("WARNING: S3_BUCKET_NAME is not set. Document uploads will fail.")
 
 def get_db():
     db = SessionLocal()
@@ -166,6 +186,12 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
+# S3 authorization helper
+def assert_can_access_matter(user: User, matter: Matter):
+    # Lawyer or client assigned to this matter can access
+    if user.id != matter.client_id and user.id != matter.lawyer_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this matter")
+
 @app.get("/profile")
 def profile(user: User = Depends(get_current_user)):
     return {
@@ -258,6 +284,25 @@ class MatterCreate(BaseModel):
     description: Optional[str] = None
     client_email: str
 
+# S3 classes
+class PresignUploadRequest(BaseModel):
+    file_name: str
+    content_type: str
+
+
+class DocumentCompleteRequest(BaseModel):
+    file_name: str
+    object_key: str
+
+
+class DocumentOut(BaseModel):
+    id: int
+    filename: str
+    s3_key: str
+    matter_id: int
+    uploaded_by_id: int
+    created_at: Optional[str]
+
 @app.post("/matters", status_code=201)
 def create_matter(
     payload: MatterCreate,
@@ -292,3 +337,107 @@ def create_matter(
         "lawyer_id": matter.lawyer_id,
         "created_at": matter.created_at.isoformat() if matter.created_at else None,
     }
+
+# presign endpoint
+@app.post("/matters/{matter_id}/uploads/presign")
+def presign_matter_upload(
+    matter_id: int,
+    body: PresignUploadRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
+
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    safe_name = body.file_name.replace(" ", "_")
+    key = f"{S3_UPLOAD_PREFIX}/matter-{matter_id}/{uuid4()}-{safe_name}"
+
+    try:
+        upload_url = s3_client.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": S3_BUCKET_NAME,
+                "Key": key,
+                "ContentType": body.content_type,
+            },
+            ExpiresIn=PRESIGNED_EXPIRATION,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not presign upload: {str(e)}")
+
+    return {"upload_url": upload_url, "object_key": key}
+
+# create a document record after upload completes
+@app.post("/matters/{matter_id}/documents", status_code=201)
+def create_document(
+    matter_id: int,
+    body: DocumentCompleteRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    expected_prefix = f"{S3_UPLOAD_PREFIX}/matter-{matter_id}/"
+    if not body.object_key.startswith(expected_prefix):
+        raise HTTPException(status_code=400, detail="Invalid object_key for this matter")
+
+    doc = Document(
+        matter_id=matter_id,
+        filename=body.file_name,
+        s3_key=body.object_key,
+        uploaded_by_id=user.id,
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    return {
+        "id": doc.id,
+        "filename": doc.filename,
+        "s3_key": doc.s3_key,
+        "matter_id": doc.matter_id,
+        "uploaded_by_id": doc.uploaded_by_id,
+        "created_at": doc.created_at.isoformat() if doc.created_at else None,
+    }
+
+# List documents for a matter
+@app.get("/matters/{matter_id}/documents")
+def list_documents(
+    matter_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    docs = (
+        db.query(Document)
+        .filter(Document.matter_id == matter_id)
+        .order_by(Document.created_at.desc())
+        .all()
+    )
+
+    return [
+        {
+            "id": d.id,
+            "filename": d.filename,
+            "s3_key": d.s3_key,
+            "matter_id": d.matter_id,
+            "uploaded_by_id": d.uploaded_by_id,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in docs
+    ]

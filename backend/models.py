@@ -37,4 +37,18 @@ class Matter(Base):
     client = relationship("User", foreign_keys=[client_id], backref="client_matters")
     lawyer = relationship("User", foreign_keys=[lawyer_id], backref="lawyer_matters")
 
+class Document(Base):
+    __tablename__ = "documents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    matter_id = Column(Integer, ForeignKey("matters.id"), nullable=False)
+    filename = Column(String(255), nullable=False)
+    s3_key = Column(String(500), nullable=False)
+
+    uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    matter = relationship("Matter", backref="documents")
+    uploaded_by = relationship("User")
+
     
