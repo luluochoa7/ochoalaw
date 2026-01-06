@@ -105,3 +105,47 @@ export async function createMatter(payload) {
 
   return res.json();
 }
+
+// --- DOCUMENT UPLOAD FLOW --- //
+
+export async function presignMatterUpload(matterId, fileName, contentType) {
+  const res = await authFetch(`/matters/${matterId}/uploads/presign`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_name: fileName, content_type: contentType }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("presignMatterUpload failed:", res.status, txt);
+    throw new Error("Failed to presign upload");
+  }
+
+  return res.json(); // { upload_url, object_key }
+}
+
+export async function completeMatterUpload(matterId, fileName, objectKey) {
+  const res = await authFetch(`/matters/${matterId}/documents`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ file_name: fileName, object_key: objectKey }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("completeMatterUpload failed:", res.status, txt);
+    throw new Error("Failed to save document record");
+  }
+
+  return res.json();
+}
+
+export async function fetchMatterDocuments(matterId) {
+  const res = await authFetch(`/matters/${matterId}/documents`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchMatterDocuments failed:", res.status, txt);
+    throw new Error("Failed to load documents");
+  }
+  return res.json();
+}

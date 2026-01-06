@@ -4,7 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import RequireAuth from "../../components/RequireAuth";
-import { fetchMe, fetchMyMatters, createMatter } from "../../lib/auth";
+import {
+  fetchMe,
+  fetchMyMatters,
+  createMatter,
+  presignMatterUpload,
+  completeMatterUpload,
+  fetchMatterDocuments,
+} from "../../lib/auth";
 
 function Stat({ label, value, sub }) {
   return (
@@ -27,6 +34,156 @@ function fmtDateShort(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function DocumentsPanel({ matters, loadingMatters }) {
+  const [selectedMatterId, setSelectedMatterId] = useState("");
+  const [docs, setDocs] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [file, setFile] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    if (!selectedMatterId && matters?.length) {
+      setSelectedMatterId(String(matters[0].id));
+    }
+  }, [matters, selectedMatterId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDocs() {
+      if (!selectedMatterId) return;
+      setErr("");
+      setDocsLoading(true);
+      try {
+        const list = await fetchMatterDocuments(selectedMatterId);
+        if (!cancelled) setDocs(Array.isArray(list) ? list : []);
+      } catch (e) {
+        if (!cancelled) setErr(e?.message || "Could not load documents.");
+      } finally {
+        if (!cancelled) setDocsLoading(false);
+      }
+    }
+
+    loadDocs();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMatterId]);
+
+  async function handleUpload() {
+    if (!selectedMatterId) return setErr("Pick a matter first.");
+    if (!file) return setErr("Choose a file first.");
+
+    setBusy(true);
+    setErr("");
+
+    try {
+      const contentType = file.type || "application/octet-stream";
+
+      const { upload_url, object_key } = await presignMatterUpload(
+        selectedMatterId,
+        file.name,
+        contentType
+      );
+
+      const putRes = await fetch(upload_url, {
+        method: "PUT",
+        headers: { "Content-Type": contentType },
+        body: file,
+      });
+
+      if (!putRes.ok) {
+        throw new Error(`Upload failed (S3): ${putRes.status}`);
+      }
+
+      await completeMatterUpload(selectedMatterId, file.name, object_key);
+
+      const list = await fetchMatterDocuments(selectedMatterId);
+      setDocs(Array.isArray(list) ? list : []);
+      setFile(null);
+
+      const el = document.getElementById("lawyer-doc-upload-input");
+      if (el) el.value = "";
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl bg-white shadow-xl border p-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
+        <select
+          className="rounded-lg border px-3 py-2 text-sm"
+          value={selectedMatterId}
+          onChange={(e) => setSelectedMatterId(e.target.value)}
+          disabled={loadingMatters || !matters?.length}
+        >
+          {matters?.length ? (
+            matters.map((m) => (
+              <option key={m.id} value={String(m.id)}>
+                {m.title} (#{m.id})
+              </option>
+            ))
+          ) : (
+            <option value="">No matters yet</option>
+          )}
+        </select>
+      </div>
+
+      <p className="mt-3 text-sm text-slate-600">
+        Upload files into the selected matter. (Downloads coming next.)
+      </p>
+
+      <div className="mt-4 flex flex-col gap-3">
+        <input
+          id="lawyer-doc-upload-input"
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="block w-full text-sm"
+          disabled={!selectedMatterId || busy}
+        />
+
+        <button
+          className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+          disabled={!selectedMatterId || busy || !file}
+          onClick={handleUpload}
+          type="button"
+        >
+          {busy ? "Uploading…" : "Upload document"}
+        </button>
+
+        {err && <p className="text-sm text-red-600">{err}</p>}
+      </div>
+
+      <div className="mt-5">
+        <p className="text-sm font-medium text-slate-900">Uploaded files</p>
+
+        <ul className="mt-2 divide-y rounded-xl border">
+          {docsLoading ? (
+            <li className="p-3 text-sm text-slate-600">Loading documents…</li>
+          ) : docs?.length ? (
+            docs.map((d) => (
+              <li key={d.id} className="p-3">
+                <p className="text-sm font-medium text-slate-900 truncate">
+                  {d.filename}
+                </p>
+                <p className="text-xs text-slate-500 truncate">{d.s3_key}</p>
+              </li>
+            ))
+          ) : (
+            <li className="p-3 text-sm text-slate-600">No documents yet.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  );
 }
 
 export default function LawyerDashboardPage() {
@@ -56,11 +213,10 @@ export default function LawyerDashboardPage() {
           return;
         }
 
-        // load matters AFTER we know role is lawyer
         setMattersLoading(true);
         setMattersError(null);
 
-        const data = await fetchMyMatters(); // GET /matters (backend filters by role)
+        const data = await fetchMyMatters();
         if (!cancelled) setMatters(Array.isArray(data) ? data : []);
       } catch (e) {
         router.push("/portal");
@@ -139,7 +295,9 @@ export default function LawyerDashboardPage() {
             <div className="container mx-auto px-4 py-12">
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
-                  <h1 className="text-3xl md:text-4xl font-bold text-white">Firm Dashboard</h1>
+                  <h1 className="text-3xl md:text-4xl font-bold text-white">
+                    Firm Dashboard
+                  </h1>
                   <p className="mt-2 text-blue-100">
                     Track matters, intake, billing, and today’s schedule.
                   </p>
@@ -172,7 +330,11 @@ export default function LawyerDashboardPage() {
             <div className="container mx-auto px-4 space-y-6">
               {/* Stats (now real) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Stat label="Open matters" value={String(stats.open)} sub={`Total: ${stats.total}`} />
+                <Stat
+                  label="Open matters"
+                  value={String(stats.open)}
+                  sub={`Total: ${stats.total}`}
+                />
                 <Stat label="Active clients" value="—" sub="Hook to users table next" />
                 <Stat label="Unread messages" value="—" sub="Messaging coming soon" />
                 <Stat label="Unbilled time" value="—" sub="Time tracking coming soon" />
@@ -182,7 +344,9 @@ export default function LawyerDashboardPage() {
                 {/* Matters */}
                 <div className="lg:col-span-2 rounded-2xl bg-white shadow-xl border p-6">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-slate-900">Recent Matters</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Recent Matters
+                    </h2>
                     <button
                       className="text-sm text-blue-700 hover:underline"
                       type="button"
@@ -205,16 +369,23 @@ export default function LawyerDashboardPage() {
                     </div>
                   ) : matters.length === 0 ? (
                     <div className="mt-4 rounded-xl border p-4 text-sm text-slate-600">
-                      No matters yet. Click <span className="font-medium">New matter</span> to create one.
+                      No matters yet. Click{" "}
+                      <span className="font-medium">New matter</span> to create one.
                     </div>
                   ) : (
                     <ul className="mt-4 divide-y">
                       {matters.slice(0, 6).map((m) => (
-                        <li key={m.id} className="py-3 flex items-center justify-between">
+                        <li
+                          key={m.id}
+                          className="py-3 flex items-center justify-between"
+                        >
                           <div>
-                            <p className="font-medium text-slate-900">{m.title || `Matter #${m.id}`}</p>
+                            <p className="font-medium text-slate-900">
+                              {m.title || `Matter #${m.id}`}
+                            </p>
                             <p className="text-xs text-slate-500">
-                              #{m.id} • Client {m.client_id ?? "—"} • {m.created_at ? fmtDateShort(m.created_at) : "—"}
+                              #{m.id} • Client {m.client_id ?? "—"} •{" "}
+                              {m.created_at ? fmtDateShort(m.created_at) : "—"}
                             </p>
                           </div>
                           <span className="rounded-full bg-blue-50 text-blue-700 text-xs px-3 py-1">
@@ -243,7 +414,9 @@ export default function LawyerDashboardPage() {
                   </div>
 
                   <div className="rounded-2xl bg-white shadow-xl border p-6">
-                    <h2 className="text-lg font-semibold text-slate-900">Intake & Inbox</h2>
+                    <h2 className="text-lg font-semibold text-slate-900">
+                      Intake & Inbox
+                    </h2>
                     <p className="mt-3 text-sm text-slate-600">
                       Next step: show new contact submissions + client messages.
                     </p>
@@ -258,22 +431,8 @@ export default function LawyerDashboardPage() {
                 </div>
               </div>
 
-              {/* Uploads (placeholder) */}
-              <div className="rounded-2xl bg-white shadow-xl border p-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-                  <button
-                    className="text-sm text-blue-700 hover:underline"
-                    type="button"
-                    onClick={() => alert("Document center coming soon.")}
-                  >
-                    Open
-                  </button>
-                </div>
-                <p className="mt-3 text-sm text-slate-600">
-                  Next step: add a file upload endpoint + storage + per-matter foldering.
-                </p>
-              </div>
+              {/* Documents (NOW FUNCTIONAL) */}
+              <DocumentsPanel matters={matters} loadingMatters={mattersLoading} />
             </div>
           </section>
         </main>
@@ -305,7 +464,9 @@ export default function LawyerDashboardPage() {
 
               <form className="mt-5 space-y-4" onSubmit={handleCreateMatter}>
                 <div>
-                  <label className="block text-sm font-medium text-slate-800">Title</label>
+                  <label className="block text-sm font-medium text-slate-800">
+                    Title
+                  </label>
                   <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
@@ -317,7 +478,9 @@ export default function LawyerDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-800">Client email</label>
+                  <label className="block text-sm font-medium text-slate-800">
+                    Client email
+                  </label>
                   <input
                     value={clientEmail}
                     onChange={(e) => setClientEmail(e.target.value)}
