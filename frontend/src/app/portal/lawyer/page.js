@@ -8,9 +8,9 @@ import {
   fetchMe,
   fetchMyMatters,
   createMatter,
-  presignMatterUpload,
-  completeMatterUpload,
+  uploadMatterFile,
   fetchMatterDocuments,
+  getDocumentDownloadUrl,
 } from "../../lib/auth";
 
 function Stat({ label, value, sub }) {
@@ -81,25 +81,8 @@ function DocumentsPanel({ matters, loadingMatters }) {
     setErr("");
 
     try {
-      const contentType = file.type || "application/octet-stream";
-
-      const { upload_url, object_key } = await presignMatterUpload(
-        selectedMatterId,
-        file.name,
-        contentType
-      );
-
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: file,
-      });
-
-      if (!putRes.ok) {
-        throw new Error(`Upload failed (S3): ${putRes.status}`);
-      }
-
-      await completeMatterUpload(selectedMatterId, file.name, object_key);
+      // SINGLE CALL (frontend): handles presign -> PUT -> complete
+      await uploadMatterFile(Number(selectedMatterId), file);
 
       const list = await fetchMatterDocuments(selectedMatterId);
       setDocs(Array.isArray(list) ? list : []);
@@ -112,6 +95,17 @@ function DocumentsPanel({ matters, loadingMatters }) {
       setErr(e?.message || "Upload failed.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleDownload(docId) {
+    setErr("");
+    try {
+      const url = await getDocumentDownloadUrl(docId);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Could not download document.");
     }
   }
 
@@ -138,7 +132,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
       </div>
 
       <p className="mt-3 text-sm text-slate-600">
-        Upload files into the selected matter. (Downloads coming next.)
+        Upload files into the selected matter. (Downloads enabled.)
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -170,11 +164,21 @@ function DocumentsPanel({ matters, loadingMatters }) {
             <li className="p-3 text-sm text-slate-600">Loading documents…</li>
           ) : docs?.length ? (
             docs.map((d) => (
-              <li key={d.id} className="p-3">
-                <p className="text-sm font-medium text-slate-900 truncate">
-                  {d.filename}
-                </p>
-                <p className="text-xs text-slate-500 truncate">{d.s3_key}</p>
+              <li key={d.id} className="p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
+                    {d.filename}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{d.s3_key}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownload(d.id)}
+                  className="shrink-0 rounded-lg border px-3 py-2 text-xs font-medium text-slate-900 hover:bg-slate-50"
+                >
+                  Download
+                </button>
               </li>
             ))
           ) : (

@@ -7,9 +7,9 @@ import RequireAuth from "../../components/RequireAuth";
 import {
   fetchMyMatters,
   fetchMe,
-  presignMatterUpload,
-  completeMatterUpload,
+  uploadMatterFile,
   fetchMatterDocuments,
+  getDocumentDownloadUrl,
 } from "../../lib/auth";
 
 function DocumentsPanel({ matters, loadingMatters }) {
@@ -59,30 +59,10 @@ function DocumentsPanel({ matters, loadingMatters }) {
     setErr("");
 
     try {
-      const contentType = file.type || "application/octet-stream";
+      // SINGLE CALL (frontend): handles presign -> PUT -> complete
+      await uploadMatterFile(Number(selectedMatterId), file);
 
-      // 1) presign
-      const { upload_url, object_key } = await presignMatterUpload(
-        selectedMatterId,
-        file.name,
-        contentType
-      );
-
-      // 2) PUT to S3
-      const putRes = await fetch(upload_url, {
-        method: "PUT",
-        headers: { "Content-Type": contentType },
-        body: file,
-      });
-
-      if (!putRes.ok) {
-        throw new Error(`Upload failed (S3): ${putRes.status}`);
-      }
-
-      // 3) create Document record
-      await completeMatterUpload(selectedMatterId, file.name, object_key);
-
-      // 4) refresh list
+      // refresh list
       const list = await fetchMatterDocuments(selectedMatterId);
       setDocs(Array.isArray(list) ? list : []);
       setFile(null);
@@ -95,6 +75,17 @@ function DocumentsPanel({ matters, loadingMatters }) {
       setErr(e?.message || "Upload failed.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleDownload(docId) {
+    setErr("");
+    try {
+      const url = await getDocumentDownloadUrl(docId);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Could not download document.");
     }
   }
 
@@ -154,11 +145,21 @@ function DocumentsPanel({ matters, loadingMatters }) {
             <li className="p-3 text-sm text-slate-600">Loading documents…</li>
           ) : docs?.length ? (
             docs.map((d) => (
-              <li key={d.id} className="p-3">
-                <p className="text-sm font-medium text-slate-900 truncate">
-                  {d.filename}
-                </p>
-                <p className="text-xs text-slate-500 truncate">{d.s3_key}</p>
+              <li key={d.id} className="p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">
+                    {d.filename}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">{d.s3_key}</p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownload(d.id)}
+                  className="shrink-0 rounded-lg border px-3 py-2 text-xs font-medium text-slate-900 hover:bg-slate-50"
+                >
+                  Download
+                </button>
               </li>
             ))
           ) : (

@@ -118,7 +118,7 @@ export async function presignMatterUpload(matterId, fileName, contentType) {
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     console.error("presignMatterUpload failed:", res.status, txt);
-    throw new Error("Failed to presign upload");
+    throw new Error(txt || "Failed to presign upload");
   }
 
   return res.json(); // { upload_url, object_key }
@@ -134,7 +134,7 @@ export async function completeMatterUpload(matterId, fileName, objectKey) {
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     console.error("completeMatterUpload failed:", res.status, txt);
-    throw new Error("Failed to save document record");
+    throw new Error(txt || "Failed to save document record");
   }
 
   return res.json();
@@ -148,4 +148,72 @@ export async function fetchMatterDocuments(matterId) {
     throw new Error("Failed to load documents");
   }
   return res.json();
+}
+
+export async function getDocumentDownloadUrl(documentId) {
+  const res = await authFetch(`/documents/${documentId}/download`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("getDocumentDownloadUrl failed:", res.status, txt);
+    throw new Error("Failed to get download link.");
+  }
+  const data = await res.json();
+  return data.download_url;
+}
+
+// CONVENIENCE HELPERS which UI uses
+
+/**
+ * Full upload flow:
+ * 1) Ask backend for a presigned PUT URL
+ * 2) PUT the file directly to S3
+ * 3) Tell backend to create the Document DB record
+ *
+ * Returns the created document record.
+ */
+export async function uploadMatterFile(matterId, file) {
+  if (!matterId) throw new Error("matterId is required");
+  if (!file) throw new Error("No file selected");
+
+  const fileName = file.name;
+  const contentType = file.type || "application/octet-stream";
+
+  // presign
+  const { upload_url, object_key } = await presignMatterUpload(
+    matterId,
+    fileName,
+    contentType
+  );
+
+  // upload to S3 (direct from browser)
+  const putRes = await fetch(upload_url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": contentType,
+    },
+    body: file,
+  });
+
+  if (!putRes.ok) {
+    const txt = await putRes.text().catch(() => "");
+    console.error("S3 PUT failed:", putRes.status, txt);
+    throw new Error("Upload to S3 failed.");
+  }
+
+  // create DB record
+  return completeMatterUpload(matterId, fileName, object_key);
+}
+
+/**
+ * Convenience helper:
+ * Gets a presigned GET link and opens the document in a new tab.
+ */
+export async function openDocument(documentId) {
+  const url = await getDocumentDownloadUrl(documentId);
+
+  if (typeof window !== "undefined") {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  return url;
 }
