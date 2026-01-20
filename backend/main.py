@@ -23,7 +23,9 @@ import boto3
 
 ALLOWED_ORIGINS = [
     "https://ochoalaw.vercel.app", 
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "https://ochoalawyers.com",
+    "https://www.ochoalawyers.com"
     ]
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
