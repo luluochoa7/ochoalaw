@@ -65,7 +65,7 @@ export default function Navbar() {
       <div className="container mx-auto flex justify-between items-center p-4">
         {/* Logo */}
         <div className="text-xl font-bold">
-          <Link href="/">Ochoa &amp; Company</Link>
+          <Link href="/">Ochoa Lawyers</Link>
         </div>
 
         {/* Desktop Menu */}

@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     yield
     
-app = FastAPI(title="Ochoa & Company", version="1.0.0", lifespan=lifespan,)
+app = FastAPI(title="Ochoa Lawyers", version="1.0.0", lifespan=lifespan,)
 
 app.add_middleware(
     CORSMiddleware,

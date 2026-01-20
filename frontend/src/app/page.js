@@ -39,10 +39,10 @@ export default function Home() {
       <section id="about" className="py-16 px-8 bg-gray-50">
         <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-10 items-center">
           <div>
-            <h2 className="text-3xl font-bold text-slate-900 mb-4">About Ochoa &amp; Co.</h2>
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">About Ochoa Lawyers</h2>
             <p className="text-lg text-slate-700 leading-relaxed">
               With years of experience across immigration, family, real estate, and personal injury law,
-              Ochoa &amp; Co. provides personalized counsel with exceptional care. We combine courtroom expertise
+              Ochoa Lawyers provides personalized counsel with exceptional care. We combine courtroom expertise
               with practical strategy to achieve the best outcomes.
             </p>
             <ul className="mt-6 space-y-2 text-slate-700">
@@ -53,7 +53,7 @@ export default function Home() {
           </div>
           <Image
             src="/titoPhoto.png"
-            alt="About Ochoa & Co."
+            alt="About Ochoa Lawyers"
             width={560}
             height={380}
             className="rounded-2xl shadow-lg object-cover"
@@ -150,7 +150,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="bg-slate-900 text-white py-8 text-center">
-        <p className="text-sm">&copy; {new Date().getFullYear()} Ochoa &amp; Co. All rights reserved.</p>
+        <p className="text-sm">&copy; {new Date().getFullYear()} Ochoa Lawyers. All rights reserved.</p>
       </footer>
     </div>
   );

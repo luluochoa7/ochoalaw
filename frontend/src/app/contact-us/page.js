@@ -93,7 +93,7 @@ export default function ContactUs() {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <p className="text-sm text-slate-500">
-                    By submitting, you agree that Ochoa &amp; Co. may contact you about your request.
+                    By submitting, you agree that Ochoa Lawyers may contact you about your request.
                   </p>
                   <button
                     type="submit"
@@ -139,7 +139,7 @@ export default function ContactUs() {
       {/* Footer */}
       <footer className="bg-slate-900 text-slate-300">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 text-center">
-          <p className="text-sm">© {new Date().getFullYear()} Ochoa &amp; Co. All rights reserved.</p>
+          <p className="text-sm">© {new Date().getFullYear()} Ochoa Lawyers. All rights reserved.</p>
         </div>
       </footer>
     </div>
