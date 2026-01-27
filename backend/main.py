@@ -28,6 +28,18 @@ ALLOWED_ORIGINS = [
     "https://www.ochoalawyers.com"
     ]
 
+MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB FILE SIZE LIMIT
+
+ALLOWED_CONTENT_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/png",
+}
+
+DISALLOWED_EXTENSIONS = {".exe", ".bat", ".sh", ".js"}
+
 AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 S3_UPLOAD_PREFIX = os.getenv("S3_UPLOAD_PREFIX", "uploads")
@@ -356,6 +368,15 @@ def presign_matter_upload(
         raise HTTPException(status_code=404, detail="Matter not found")
 
     assert_can_access_matter(user, matter)
+
+    # File Rules
+    ext = os.path.splitext(body.file_name)[1].lower()
+
+    if ext in DISALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="File Type not allowed")
+    
+    if body.content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
 
     safe_name = body.file_name.replace(" ", "_")
     key = f"{S3_UPLOAD_PREFIX}/matter-{matter_id}/{uuid4()}-{safe_name}"

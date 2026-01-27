@@ -20,6 +20,16 @@ function DocumentsPanel({ matters, loadingMatters }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // File Size Limits
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB File Size Max
+  const ALLOWED_TYPES = [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/png",
+  ];
+
   // default selected matter when matters load
   useEffect(() => {
     if (!selectedMatterId && matters?.length) {
@@ -54,6 +64,10 @@ function DocumentsPanel({ matters, loadingMatters }) {
   async function handleUpload() {
     if (!selectedMatterId) return setErr("Pick a matter first.");
     if (!file) return setErr("Choose a file first.");
+    if (file.size > MAX_FILE_SIZE) return setErr("File must be under 25MB.");
+    if (file.type && !ALLOWED_TYPES.includes(file.type)) {
+      return setErr("Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG.");
+    }
 
     setBusy(true);
     setErr("");
@@ -120,10 +134,40 @@ function DocumentsPanel({ matters, loadingMatters }) {
         <input
           id="client-doc-upload-input"
           type="file"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+          onChange={(e) => {
+            const f = e.target.files?.[0] ?? null;
+            setErr("");
+            setFile(null);
+
+            if (!f) return;
+
+            if (f.size > MAX_FILE_SIZE) {
+              setErr("File must be under 25MB.");
+              e.target.value = ""; // reset picker
+              return;
+            }
+            if (f.type && !ALLOWED_TYPES.includes(f.type)) {
+              setErr("Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG.");
+              e.target.value = ""; // reset picker
+              return;
+            }
+            setFile(f); // only set if valid
+          }}
           className="block w-full text-sm"
           disabled={!selectedMatterId || busy}
         />
+
+        {file ? (
+          <p className="text-xs text-slate-600">
+            Selected: <span className="font-medium">{file.name}</span>{" "}
+            ({Math.ceil(file.size / 1024)} KB)
+          </p>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Allowed: PDF, DOC, DOCX, JPG, PNG • Max 25MB
+          </p>
+        )}
 
         <button
           className="w-full rounded-lg bg-slate-900 px-4 py-3 text-white hover:bg-black disabled:opacity-60"
