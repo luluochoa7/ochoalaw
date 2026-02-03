@@ -217,3 +217,11 @@ export async function openDocument(documentId) {
 
   return url;
 }
+
+export async function fetchMatterDetail(matterId) {
+  const res = await authFetch(`/matters/${matterId}`);
+  if (!res.ok) {
+    throw new Error("Failed to load matter");
+  }
+  return res.json();
+}

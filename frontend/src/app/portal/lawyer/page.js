@@ -425,7 +425,8 @@ export default function LawyerDashboardPage() {
                       {matters.slice(0, 6).map((m) => (
                         <li
                           key={m.id}
-                          className="py-3 flex items-center justify-between"
+                          onClick={() => router.push(`/portal/lawyer/matters/${m.id}`)}
+                          className="py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50"
                         >
                           <div>
                             <p className="font-medium text-slate-900">

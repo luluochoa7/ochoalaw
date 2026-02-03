@@ -502,3 +502,45 @@ def download_document(
         raise HTTPException(status_code=500, detail=f"Could not presign download: {str(e)}")
 
     return {"download_url": download_url}
+
+
+@app.get("/matters/{matter_id}")
+def get_matter_detail(
+    matter_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    documents = (
+        db.query(Document)
+        .filter(Document.matter_id == matter_id)
+        .order_by(Document.created_at.desc())
+        .all()
+    )
+
+    return {
+        "matter": {
+            "id": matter.id,
+            "title": matter.title,
+            "description": matter.description,
+            "status": matter.status,
+            "client_id": matter.client_id,
+            "lawyer_id": matter.lawyer_id,
+            "created_at": matter.created_at.isoformat() if matter.created_at else None,
+        },
+        "documents": [
+            {
+                "id": d.id,
+                "filename": d.filename,
+                "s3_key": d.s3_key,
+                "uploaded_by_id": d.uploaded_by_id,
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in documents
+        ],
+    }

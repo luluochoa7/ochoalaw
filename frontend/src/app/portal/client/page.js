@@ -283,7 +283,8 @@ export default function ClientDashboardPage() {
                         {matters.map((m) => (
                           <li
                             key={m.id}
-                            className="py-3 flex justify-between items-center"
+                            onClick={() => router.push(`/portal/client/matters/${m.id}`)}
+                            className="py-3 flex justify-between items-center cursor-pointer hover:bg-slate-50"
                           >
                             <div>
                               <p className="font-medium text-slate-900">
