@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "../../../components/Navbar";
-import RequireAuth from "../../../components/RequireAuth";
-import { fetchMe, fetchMyMatters, fetchMatterDocuments, openDocument } from "../../../lib/auth";
+import Navbar from "../../../../components/Navbar";
+import RequireAuth from "../../../../components/RequireAuth";
+import { fetchMe, fetchMyMatters, fetchMatterDocuments, openDocument } from "../../../../lib/auth";
 
 export default function ClientMatterDetailPage({ params }) {
   const router = useRouter();
