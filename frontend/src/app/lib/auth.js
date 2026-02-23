@@ -221,7 +221,15 @@ export async function openDocument(documentId) {
 export async function fetchMatterDetail(matterId) {
   const res = await authFetch(`/matters/${matterId}`);
   if (!res.ok) {
-    throw new Error("Failed to load matter");
+    if (res.status === 403) {
+      throw new Error("You do not have access to this matter.");
+    }
+    if (res.status === 404) {
+      throw new Error("Matter not found.");
+    }
+    const txt = await res.text().catch(() => "");
+    console.error("fetchMatterDetail failed:", res.status, txt);
+    throw new Error("Failed to load matter.");
   }
   return res.json();
 }

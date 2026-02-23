@@ -1,7 +1,12 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/page": "app/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/contact-us/page": "app/contact-us/page.js",
-  "/portal/page": "app/portal/page.js"
+  "/portal/page": "app/portal/page.js",
+  "/thank-you/page": "app/thank-you/page.js",
+  "/page": "app/page.js",
+  "/portal/client/matters/[matterId]/page": "app/portal/client/matters/[matterId]/page.js",
+  "/portal/lawyer/matters/[matterId]/page": "app/portal/lawyer/matters/[matterId]/page.js",
+  "/portal/lawyer/page": "app/portal/lawyer/page.js",
+  "/portal/client/page": "app/portal/client/page.js"
 }
