@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getToken, clearToken, fetchMe } from "../lib/auth"; // <-- ensure this path matches your project
+import {
+  getToken,
+  clearToken,
+  fetchMe,
+  AUTH_CHANGED_EVENT,
+} from "../lib/auth";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -14,7 +19,8 @@ export default function Navbar() {
   useEffect(() => {
     let ignore = false;
 
-    async function loadUser() {
+    async function loadUser(withLoading = true) {
+      if (!ignore && withLoading) setLoadingUser(true);
       try {
         const token = getToken();
         if (!token) {
@@ -40,10 +46,25 @@ export default function Navbar() {
       }
     }
 
-    loadUser();
+    loadUser(true);
+
+    function handleAuthChange(event) {
+      const nextUser = event?.detail?.user;
+      if (nextUser) {
+        setUser(nextUser);
+        setLoadingUser(false);
+        return;
+      }
+      loadUser(false);
+    }
+
+    window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+    window.addEventListener("storage", handleAuthChange);
 
     return () => {
       ignore = true;
+      window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
+      window.removeEventListener("storage", handleAuthChange);
     };
   }, []);
 

@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginWithEmail, fetchMe, signup } from "../lib/auth";
+import { loginWithEmail, fetchMe, notifyAuthChanged, signup } from "../lib/auth";
 
 export default function PortalPage() {
   const router = useRouter();
@@ -36,6 +36,7 @@ export default function PortalPage() {
 
       // 2) fetch me
       const me = await fetchMe();
+      notifyAuthChanged(me);
 
       // 3) redirect
       if (me.role === "lawyer") {
@@ -74,6 +75,7 @@ export default function PortalPage() {
 
       // 3) fetch /me to get role
       const me = await fetchMe();
+      notifyAuthChanged(me);
 
       // 4) close modal
       setShowSignup(false);

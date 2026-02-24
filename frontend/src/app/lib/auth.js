@@ -1,11 +1,22 @@
 // src/lib/auth.js
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:10000";
 const TOKEN_KEY = "access_token";
+export const AUTH_CHANGED_EVENT = "auth-changed";
+
+function emitAuthChanged(user = null) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(AUTH_CHANGED_EVENT, { detail: { user } }));
+}
+
+export function notifyAuthChanged(user = null) {
+  emitAuthChanged(user);
+}
 
 // Store token in localStorage (MVP – later we can move to HttpOnly cookies)
 export function saveToken(token) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(TOKEN_KEY, token);
+  emitAuthChanged();
 }
 
 export function getToken() {
@@ -16,6 +27,7 @@ export function getToken() {
 export function clearToken() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(TOKEN_KEY);
+  emitAuthChanged();
 }
 
 // Fetch helper that auto-attaches Authorization header
