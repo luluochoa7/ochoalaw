@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Navbar from "../components/Navbar";
 import { loginWithEmail, fetchMe, signup } from "../lib/auth";
 
 export default function PortalPage() {
@@ -95,8 +94,6 @@ export default function PortalPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
-
       <main className="flex-1 mt-16">
         {/* Header */}
         <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">

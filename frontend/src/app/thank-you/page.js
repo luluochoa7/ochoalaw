@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Navbar from "../components/Navbar";
 import { useRouter } from "next/navigation";
 
 const REDIRECT_SECONDS = 7;
@@ -24,8 +23,6 @@ export default function ThankYou() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-black text-white">
-      <Navbar />
-
       <main className="flex-1 mt-16 flex items-center justify-center px-4">
         <div className="w-full max-w-2xl">
           {/* Card */}

@@ -1,12 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import Navbar from ".//components/Navbar";
 
 export default function Home() {
   return (
     <div id="home" className="min-h-screen flex flex-col">
-      <Navbar />
-
       {/* Hero */}
       <section
         className="relative text-white min-h-screen flex items-center justify-center"
@@ -94,12 +91,12 @@ export default function Home() {
             <span className="font-medium">Coming soon.</span>
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <a className="rounded-lg px-5 py-2 border text-slate-800 hover:bg-slate-50" href="/portal?role=lawyer" title="Placeholder">
+            <Link className="rounded-lg px-5 py-2 border text-slate-800 hover:bg-slate-50" href="/portal?role=lawyer" title="Placeholder">
               Lawyer Login
-            </a>
-            <a className="rounded-lg px-5 py-2 border text-slate-800 hover:bg-slate-50" href="/portal?role=client" title="Placeholder">
+            </Link>
+            <Link className="rounded-lg px-5 py-2 border text-slate-800 hover:bg-slate-50" href="/portal?role=client" title="Placeholder">
               Client Login
-            </a>
+            </Link>
           </div>
         </div>
       </section>
