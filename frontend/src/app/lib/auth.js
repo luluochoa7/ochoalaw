@@ -118,6 +118,20 @@ export async function createMatter(payload) {
   return res.json();
 }
 
+export async function searchClients(query) {
+  const res = await authFetch(
+    `/lawyer/clients?query=${encodeURIComponent(query)}`
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("searchClients failed:", res.status, txt);
+    throw new Error("Failed to search clients");
+  }
+
+  return res.json(); // [{id,name,email}]
+}
+
 // --- DOCUMENT UPLOAD FLOW --- //
 
 export async function presignMatterUpload(matterId, fileName, contentType) {

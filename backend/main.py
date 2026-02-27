@@ -1,12 +1,12 @@
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Form, Depends, HTTPException, status
+from fastapi import FastAPI, Form, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
 from models import Base, ContactSubmission, User, Matter, Document 
@@ -292,11 +292,17 @@ def get_my_matters(user: User = Depends(get_current_user), db: Session = Depends
         for m in matters
     ]
 
-# Lawyer creates a matter for a client by email
+# Lawyer creates a matter for a selected client
 class MatterCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    client_email: str
+    client_id: int
+
+
+class ClientOut(BaseModel):
+    id: int
+    name: str
+    email: str
 
 # S3 classes
 class PresignUploadRequest(BaseModel):
@@ -317,6 +323,36 @@ class DocumentOut(BaseModel):
     uploaded_by_id: int
     created_at: Optional[str]
 
+
+@app.get("/lawyer/clients", response_model=list[ClientOut])
+def search_clients(
+    query: str = Query(..., min_length=1),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Not a lawyer")
+
+    q = query.strip()
+    if not q:
+        return []
+
+    results = (
+        db.query(User)
+        .filter(User.role == "client")
+        .filter(
+            or_(
+                User.name.ilike(f"%{q}%"),
+                User.email.ilike(f"%{q}%"),
+            )
+        )
+        .order_by(User.name.asc())
+        .limit(10)
+        .all()
+    )
+
+    return [{"id": u.id, "name": u.name, "email": u.email} for u in results]
+
 @app.post("/matters", status_code=201)
 def create_matter(
     payload: MatterCreate,
@@ -326,10 +362,13 @@ def create_matter(
     if user.role != "lawyer":
         raise HTTPException(status_code=403, detail="Only lawyers can create matters.")
 
-    client_email = payload.client_email.strip().lower()
-    client = db.query(User).filter(User.email == client_email).first()
+    client = (
+        db.query(User)
+        .filter(User.id == payload.client_id, User.role == "client")
+        .first()
+    )
     if not client:
-        raise HTTPException(status_code=404, detail="Client not found. Ask client to sign up first.")
+        raise HTTPException(status_code=404, detail="Client not found.")
 
     matter = Matter(
         title=payload.title.strip(),

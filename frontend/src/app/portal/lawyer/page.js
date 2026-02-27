@@ -7,6 +7,7 @@ import {
   fetchMe,
   fetchMyMatters,
   createMatter,
+  searchClients,
   uploadMatterFile,
   fetchMatterDocuments,
   getDocumentDownloadUrl,
@@ -246,8 +247,40 @@ export default function LawyerDashboardPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState(null);
   const [title, setTitle] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientResults, setClientResults] = useState([]);
+  const [clientSearching, setClientSearching] = useState(false);
+  const [selectedClient, setSelectedClient] = useState(null);
   const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const q = clientQuery.trim();
+    if (!q) {
+      setClientResults([]);
+      setClientSearching(false);
+      return;
+    }
+
+    async function run() {
+      setClientSearching(true);
+      try {
+        const results = await searchClients(q);
+        if (!cancelled) setClientResults(Array.isArray(results) ? results : []);
+      } catch (e) {
+        if (!cancelled) setClientResults([]);
+      } finally {
+        if (!cancelled) setClientSearching(false);
+      }
+    }
+
+    const t = setTimeout(run, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [clientQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -297,11 +330,10 @@ export default function LawyerDashboardPage() {
     setCreateError(null);
 
     const t = title.trim();
-    const ce = clientEmail.trim().toLowerCase();
     const desc = description.trim();
 
-    if (!t || !ce) {
-      setCreateError("Title and client email are required.");
+    if (!t || !selectedClient?.id) {
+      setCreateError("Title and client selection are required.");
       return;
     }
 
@@ -309,14 +341,16 @@ export default function LawyerDashboardPage() {
     try {
       const created = await createMatter({
         title: t,
-        client_email: ce,
+        client_id: selectedClient.id,
         description: desc || null,
       });
 
       setMatters((prev) => [created, ...prev]);
 
       setTitle("");
-      setClientEmail("");
+      setClientQuery("");
+      setClientResults([]);
+      setSelectedClient(null);
       setDescription("");
       setShowCreate(false);
     } catch (err) {
@@ -504,7 +538,7 @@ export default function LawyerDashboardPage() {
               Create a new matter
             </h2>
             <p className="mt-2 text-sm text-slate-600 text-center">
-              Assign this matter to a client by email.
+              Search and assign this matter to an existing client.
             </p>
 
             <form className="mt-5 space-y-4" onSubmit={handleCreateMatter}>
@@ -522,21 +556,84 @@ export default function LawyerDashboardPage() {
                 />
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-medium text-slate-800">
-                  Client email
+                  Client
                 </label>
-                <input
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  type="email"
-                  required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
-                  placeholder="client@example.com"
-                />
-                <p className="mt-2 text-xs text-slate-500">
-                  Client must have already signed up (for now).
-                </p>
+
+                {selectedClient ? (
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">
+                        {selectedClient.name}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {selectedClient.email}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="text-sm text-blue-700 hover:underline"
+                      onClick={() => {
+                        setSelectedClient(null);
+                        setClientQuery("");
+                        setClientResults([]);
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      value={clientQuery}
+                      onChange={(e) => setClientQuery(e.target.value)}
+                      type="text"
+                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                      placeholder="Search by name or email..."
+                    />
+
+                    {(clientSearching ||
+                      clientResults.length > 0 ||
+                      clientQuery.trim()) && (
+                      <div className="absolute z-50 mt-2 w-full rounded-xl border bg-white shadow-xl overflow-hidden">
+                        {clientSearching ? (
+                          <div className="p-3 text-sm text-slate-600">
+                            Searching...
+                          </div>
+                        ) : clientResults.length ? (
+                          clientResults.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              className="w-full text-left px-4 py-3 hover:bg-slate-50"
+                              onClick={() => {
+                                setSelectedClient(c);
+                                setClientQuery("");
+                                setClientResults([]);
+                              }}
+                            >
+                              <p className="text-sm font-medium text-slate-900">
+                                {c.name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {c.email}
+                              </p>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-3 text-sm text-slate-600">
+                            No matching clients.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="mt-2 text-xs text-slate-500">
+                      Client must have already signed up (for now).
+                    </p>
+                  </>
+                )}
               </div>
 
               <div>
