@@ -299,10 +299,28 @@ class MatterCreate(BaseModel):
     client_id: int
 
 
+ALLOWED_MATTER_STATUSES = {"Open", "In Progress", "Waiting on Client", "Closed"}
+
+
 class ClientOut(BaseModel):
     id: int
     name: str
     email: str
+
+
+class MatterOut(BaseModel):
+    id: int
+    title: str
+    status: str
+    description: Optional[str]
+    client_id: int
+    lawyer_id: Optional[int]
+    created_at: Optional[str]
+
+
+class MatterUpdate(BaseModel):
+    status: Optional[str] = None
+    description: Optional[str] = None
 
 # S3 classes
 class PresignUploadRequest(BaseModel):
@@ -543,8 +561,8 @@ def download_document(
     return {"download_url": download_url}
 
 
-@app.get("/matters/{matter_id}")
-def get_matter_detail(
+@app.get("/matters/{matter_id}", response_model=MatterOut)
+def get_matter(
     matter_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -555,31 +573,57 @@ def get_matter_detail(
 
     assert_can_access_matter(user, matter)
 
-    documents = (
-        db.query(Document)
-        .filter(Document.matter_id == matter_id)
-        .order_by(Document.created_at.desc())
-        .all()
-    )
+    return {
+        "id": matter.id,
+        "title": matter.title,
+        "status": matter.status,
+        "description": matter.description,
+        "client_id": matter.client_id,
+        "lawyer_id": matter.lawyer_id,
+        "created_at": matter.created_at.isoformat() if matter.created_at else None,
+    }
+
+
+@app.patch("/matters/{matter_id}", response_model=MatterOut)
+def update_matter(
+    matter_id: int,
+    body: MatterUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    # MVP rule: only the assigned lawyer can edit matter status/description.
+    if user.role != "lawyer" or user.id != matter.lawyer_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the assigned lawyer can update this matter",
+        )
+
+    if body.status is not None:
+        status_value = body.status.strip()
+        if status_value not in ALLOWED_MATTER_STATUSES:
+            raise HTTPException(status_code=400, detail="Invalid status")
+        matter.status = status_value
+
+    if body.description is not None:
+        description_value = body.description.strip()
+        matter.description = description_value if description_value else None
+
+    db.add(matter)
+    db.commit()
+    db.refresh(matter)
 
     return {
-        "matter": {
-            "id": matter.id,
-            "title": matter.title,
-            "description": matter.description,
-            "status": matter.status,
-            "client_id": matter.client_id,
-            "lawyer_id": matter.lawyer_id,
-            "created_at": matter.created_at.isoformat() if matter.created_at else None,
-        },
-        "documents": [
-            {
-                "id": d.id,
-                "filename": d.filename,
-                "s3_key": d.s3_key,
-                "uploaded_by_id": d.uploaded_by_id,
-                "created_at": d.created_at.isoformat() if d.created_at else None,
-            }
-            for d in documents
-        ],
+        "id": matter.id,
+        "title": matter.title,
+        "status": matter.status,
+        "description": matter.description,
+        "client_id": matter.client_id,
+        "lawyer_id": matter.lawyer_id,
+        "created_at": matter.created_at.isoformat() if matter.created_at else None,
     }

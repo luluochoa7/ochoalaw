@@ -450,8 +450,8 @@ export default function LawyerDashboardPage() {
                   <span className="font-medium">New matter</span> to create one.
                 </div>
               ) : (
-                <ul className="mt-4 divide-y">
-                  {matters.slice(0, 6).map((m) => (
+                <ul className="mt-4 divide-y max-h-[360px] overflow-y-auto rounded-xl border">
+                  {matters.map((m) => (
                     <li key={m.id}>
                       <Link
                         href={`/portal/lawyer/matters/${m.id}`}

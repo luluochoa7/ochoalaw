@@ -274,7 +274,7 @@ export default function ClientDashboardPage() {
                     You don’t have any active matters yet.
                   </p>
                 ) : (
-                  <ul className="divide-y">
+                  <ul className="mt-3 divide-y max-h-[360px] overflow-y-auto rounded-xl border">
                     {matters.map((m) => (
                       <li key={m.id}>
                         <Link
