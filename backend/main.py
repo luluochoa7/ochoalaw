@@ -5,7 +5,7 @@ from fastapi import FastAPI, Form, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
@@ -270,10 +270,15 @@ def get_lawyer_matters(user: User = Depends(get_current_user), db: Session = Dep
 # (Recommended) one unified endpoint: returns matters for current user based on role
 @app.get("/matters")
 def get_my_matters(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    matter_query = db.query(Matter).options(
+        joinedload(Matter.client),
+        joinedload(Matter.lawyer),
+    )
+
     if user.role == "lawyer":
-        q = db.query(Matter).filter(Matter.lawyer_id == user.id)
+        q = matter_query.filter(Matter.lawyer_id == user.id)
     elif user.role == "client":
-        q = db.query(Matter).filter(Matter.client_id == user.id)
+        q = matter_query.filter(Matter.client_id == user.id)
     else:
         raise HTTPException(status_code=403, detail="Invalid role")
 
@@ -287,6 +292,8 @@ def get_my_matters(user: User = Depends(get_current_user), db: Session = Depends
             "description": m.description,
             "client_id": m.client_id,
             "lawyer_id": m.lawyer_id,
+            "client_name": m.client.name if m.client else None,
+            "lawyer_name": m.lawyer.name if m.lawyer else None,
             "created_at": m.created_at.isoformat() if m.created_at else None,
         }
         for m in matters
@@ -406,6 +413,8 @@ def create_matter(
         "description": matter.description,
         "client_id": matter.client_id,
         "lawyer_id": matter.lawyer_id,
+        "client_name": client.name,
+        "lawyer_name": user.name,
         "created_at": matter.created_at.isoformat() if matter.created_at else None,
     }
 

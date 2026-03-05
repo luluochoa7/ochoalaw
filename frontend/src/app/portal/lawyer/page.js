@@ -29,6 +29,15 @@ function normalizeStatus(s) {
   return val[0].toUpperCase() + val.slice(1);
 }
 
+function statusBadgeClass(status) {
+  const s = normalizeStatus(status);
+  if (s === "Closed") return "bg-red-100 text-red-700";
+  if (s === "Waiting on Client") return "bg-amber-100 text-amber-700";
+  if (s === "In Progress") return "bg-green-100 text-green-700";
+  if (s === "Open") return "bg-blue-100 text-blue-700";
+  return "bg-slate-100 text-slate-700";
+}
+
 function fmtDateShort(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -125,10 +134,10 @@ function DocumentsPanel({ matters, loadingMatters }) {
 
   return (
     <div className="rounded-2xl bg-white shadow-xl border p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
         <select
-          className="rounded-lg border px-3 py-2 text-sm"
+          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
           value={selectedMatterId}
           onChange={(e) => setSelectedMatterId(e.target.value)}
           disabled={loadingMatters || !matters?.length}
@@ -145,8 +154,8 @@ function DocumentsPanel({ matters, loadingMatters }) {
         </select>
       </div>
 
-      <p className="mt-3 text-sm text-slate-600">
-        Upload files into the selected matter. (Downloads enabled.)
+      <p className="mt-2 text-sm text-slate-600">
+        Upload files into the selected matter and open them instantly.
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -203,7 +212,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
       <div className="mt-5">
         <p className="text-sm font-medium text-slate-900">Uploaded files</p>
 
-        <ul className="mt-2 divide-y rounded-xl border">
+        <ul className="mt-2 max-h-[280px] overflow-y-auto divide-y rounded-xl border bg-white">
           {docsLoading ? (
             <li className="p-3 text-sm text-slate-600">Loading documents…</li>
           ) : docs?.length ? (
@@ -221,7 +230,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
                   onClick={() => handleDownload(d.id)}
                   className="shrink-0 rounded-lg border px-3 py-2 text-xs font-medium text-slate-900 hover:bg-slate-50"
                 >
-                  Download
+                  Open
                 </button>
               </li>
             ))
@@ -420,20 +429,22 @@ export default function LawyerDashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Matters */}
             <div className="lg:col-span-2 rounded-2xl bg-white shadow-xl border p-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Recent Matters
-                </h2>
-                <button
-                  className="text-sm text-blue-700 hover:underline"
-                  type="button"
-                  onClick={() => {
-                    setCreateError(null);
-                    setShowCreate(true);
-                  }}
-                >
-                  Create new
-                </button>
+              <div className="-mx-6 -mt-6 px-6 py-4 border-b bg-white/70 backdrop-blur rounded-t-2xl sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-slate-900">
+                    Recent Matters
+                  </h2>
+                  <button
+                    className="text-sm text-blue-700 hover:underline"
+                    type="button"
+                    onClick={() => {
+                      setCreateError(null);
+                      setShowCreate(true);
+                    }}
+                  >
+                    Create new
+                  </button>
+                </div>
               </div>
 
               {mattersLoading ? (
@@ -450,30 +461,37 @@ export default function LawyerDashboardPage() {
                   <span className="font-medium">New matter</span> to create one.
                 </div>
               ) : (
-                <ul className="mt-4 divide-y max-h-[360px] overflow-y-auto rounded-xl border">
-                  {matters.map((m) => (
-                    <li key={m.id}>
-                      <Link
-                        href={`/portal/lawyer/matters/${m.id}`}
-                        prefetch={true}
-                        className="py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50"
-                      >
-                        <div>
-                          <p className="font-medium text-slate-900">
-                            {m.title || `Matter #${m.id}`}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            #{m.id} • Client {m.client_id ?? "—"} •{" "}
-                            {m.created_at ? fmtDateShort(m.created_at) : "—"}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-blue-50 text-blue-700 text-xs px-3 py-1">
-                          {normalizeStatus(m.status)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <ul className="mt-4 max-h-[420px] overflow-y-auto space-y-2 pr-1">
+                    {matters.map((m) => (
+                      <li key={m.id}>
+                        <Link
+                          href={`/portal/lawyer/matters/${m.id}`}
+                          prefetch={true}
+                          className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-[1px] transition cursor-pointer"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-900">
+                              {m.title || `Matter #${m.id}`}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              #{m.id} • {m.client_name || `Client ${m.client_id ?? "—"}`} •{" "}
+                              {m.created_at ? fmtDateShort(m.created_at) : "—"}
+                            </p>
+                          </div>
+                          <span
+                            className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap ${statusBadgeClass(
+                              m.status
+                            )}`}
+                          >
+                            {normalizeStatus(m.status)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="pointer-events-none mt-2 h-6 bg-gradient-to-b from-transparent to-white" />
+                </>
               )}
             </div>
 
