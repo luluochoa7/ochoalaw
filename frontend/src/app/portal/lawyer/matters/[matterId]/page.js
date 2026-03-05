@@ -191,7 +191,7 @@ export default function LawyerMatterDetailPage({ params }) {
                           {d.filename}
                         </p>
                         <p className="text-xs text-slate-500">
-                          Doc #{d.id} • {formatDateTime(d.created_at)}
+                          Uploaded {formatDateTime(d.created_at)}
                         </p>
                       </div>
                       <button

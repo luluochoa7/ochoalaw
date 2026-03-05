@@ -51,6 +51,19 @@ function DocumentsPanel({ matters, loadingMatters }) {
     "image/png",
   ];
 
+  function fmtDateTime(iso) {
+    if (!iso) return "";
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "";
+    return dt.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
   // default selected matter when matters load
   useEffect(() => {
     if (!selectedMatterId && matters?.length) {
@@ -129,22 +142,24 @@ function DocumentsPanel({ matters, loadingMatters }) {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
 
-        <select
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          value={selectedMatterId}
-          onChange={(e) => setSelectedMatterId(e.target.value)}
-          disabled={loadingMatters || !matters?.length}
-        >
-          {matters?.length ? (
-            matters.map((m) => (
-              <option key={m.id} value={String(m.id)}>
-                {m.title} (#{m.id})
-              </option>
-            ))
-          ) : (
-            <option value="">No matters yet</option>
-          )}
-        </select>
+        <div className="w-full sm:w-auto">
+          <select
+            className="w-full sm:w-[280px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            value={selectedMatterId}
+            onChange={(e) => setSelectedMatterId(e.target.value)}
+            disabled={loadingMatters || !matters?.length}
+          >
+            {matters?.length ? (
+              matters.map((m) => (
+                <option key={m.id} value={String(m.id)}>
+                  {m.title} (#{m.id})
+                </option>
+              ))
+            ) : (
+              <option value="">No matters yet</option>
+            )}
+          </select>
+        </div>
       </div>
 
       <p className="mt-2 text-sm text-slate-600">
@@ -215,7 +230,9 @@ function DocumentsPanel({ matters, loadingMatters }) {
                   <p className="text-sm font-medium text-slate-900 truncate">
                     {d.filename}
                   </p>
-                  <p className="text-xs text-slate-500 truncate">{d.s3_key}</p>
+                  <p className="text-xs text-slate-500">
+                    Uploaded {d.created_at ? fmtDateTime(d.created_at) : "—"}
+                  </p>
                 </div>
 
                 <button
