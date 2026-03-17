@@ -8,6 +8,8 @@ import {
   fetchMatter,
   fetchMatterDocuments,
   openDocument,
+  fetchSharedUpdates,
+  createSharedUpdate,
 } from "../../../../lib/auth";
 
 function formatDateTime(iso) {
@@ -26,6 +28,11 @@ export default function ClientMatterDetailPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [actionError, setActionError] = useState("");
+  const [sharedUpdates, setSharedUpdates] = useState([]);
+  const [sharedUpdatesLoading, setSharedUpdatesLoading] = useState(true);
+  const [sharedUpdateContent, setSharedUpdateContent] = useState("");
+  const [sharedUpdateBusy, setSharedUpdateBusy] = useState(false);
+  const [sharedUpdatesError, setSharedUpdatesError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -47,10 +54,25 @@ export default function ClientMatterDetailPage({ params }) {
           setMatter(matterData ?? null);
           setDocs(Array.isArray(documents) ? documents : []);
         }
+
+        try {
+          const shared = await fetchSharedUpdates(matterId);
+          if (!cancelled) setSharedUpdates(Array.isArray(shared) ? shared : []);
+        } catch (e) {
+          if (!cancelled) {
+            setSharedUpdatesError(e?.message || "Failed to load shared updates.");
+            setSharedUpdates([]);
+          }
+        } finally {
+          if (!cancelled) setSharedUpdatesLoading(false);
+        }
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Failed to load matter.");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setSharedUpdatesLoading(false);
+        }
       }
     }
 
@@ -66,6 +88,28 @@ export default function ClientMatterDetailPage({ params }) {
       await openDocument(documentId);
     } catch (e) {
       setActionError(e?.message || "Could not open document.");
+    }
+  }
+
+  async function handleCreateSharedUpdate(e) {
+    e.preventDefault();
+    setSharedUpdatesError("");
+
+    const content = sharedUpdateContent.trim();
+    if (!content) {
+      setSharedUpdatesError("Please enter an update.");
+      return;
+    }
+
+    setSharedUpdateBusy(true);
+    try {
+      const created = await createSharedUpdate(matterId, content);
+      setSharedUpdates((prev) => [created, ...prev]);
+      setSharedUpdateContent("");
+    } catch (e) {
+      setSharedUpdatesError(e?.message || "Failed to create shared update.");
+    } finally {
+      setSharedUpdateBusy(false);
     }
   }
 
@@ -128,6 +172,61 @@ export default function ClientMatterDetailPage({ params }) {
                   <li className="p-3 text-sm text-slate-600">No documents yet.</li>
                 )}
               </ul>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900">Shared Updates</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Updates shared between you and your lawyer for this matter.
+            </p>
+
+            <form className="mt-4 space-y-3" onSubmit={handleCreateSharedUpdate}>
+              <textarea
+                value={sharedUpdateContent}
+                onChange={(e) => setSharedUpdateContent(e.target.value)}
+                rows={4}
+                className="w-full resize-y rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600 min-h-[120px]"
+                placeholder="Add an update or response..."
+              />
+
+              {sharedUpdatesError && (
+                <p className="text-sm text-red-600">{sharedUpdatesError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={sharedUpdateBusy}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {sharedUpdateBusy ? "Saving..." : "Add Update"}
+              </button>
+            </form>
+
+            <div className="mt-6">
+              {sharedUpdatesLoading ? (
+                <p className="text-sm text-slate-600">Loading shared updates...</p>
+              ) : sharedUpdates.length ? (
+                <ul className="space-y-3">
+                  {sharedUpdates.map((n) => (
+                    <li key={n.id} className="rounded-xl border bg-blue-50 p-4">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-sm font-medium text-slate-900">
+                          {n.user_name || `User ${n.user_id}`}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {n.created_at ? new Date(n.created_at).toLocaleString() : ""}
+                        </p>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
+                        {n.content}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500">No shared updates yet.</p>
+              )}
             </div>
           </div>
 

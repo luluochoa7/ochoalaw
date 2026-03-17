@@ -208,6 +208,58 @@ export async function fetchMatterDocuments(matterId) {
   return res.json();
 }
 
+export async function fetchInternalNotes(matterId) {
+  const res = await authFetch(`/matters/${matterId}/internal-notes`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchInternalNotes failed:", res.status, txt);
+    throw new Error("Failed to load internal notes");
+  }
+  return res.json();
+}
+
+export async function createInternalNote(matterId, content) {
+  const res = await authFetch(`/matters/${matterId}/internal-notes`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("createInternalNote failed:", res.status, txt);
+    throw new Error(txt || "Failed to create internal note");
+  }
+
+  return res.json();
+}
+
+export async function fetchSharedUpdates(matterId) {
+  const res = await authFetch(`/matters/${matterId}/shared-updates`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchSharedUpdates failed:", res.status, txt);
+    throw new Error("Failed to load shared updates");
+  }
+  return res.json();
+}
+
+export async function createSharedUpdate(matterId, content) {
+  const res = await authFetch(`/matters/${matterId}/shared-updates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("createSharedUpdate failed:", res.status, txt);
+    throw new Error(txt || "Failed to create shared update");
+  }
+
+  return res.json();
+}
+
 export async function getDocumentDownloadUrl(documentId) {
   const res = await authFetch(`/documents/${documentId}/download`);
   if (!res.ok) {

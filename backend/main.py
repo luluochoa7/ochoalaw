@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
-from models import Base, ContactSubmission, User, Matter, Document 
+from models import Base, ContactSubmission, User, Matter, Document, MatterNote
 
 from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -206,6 +206,24 @@ def assert_can_access_matter(user: User, matter: Matter):
     if user.id != matter.client_id and user.id != matter.lawyer_id:
         raise HTTPException(status_code=403, detail="Not authorized for this matter")
 
+
+def assert_can_access_internal_notes(user: User, matter: Matter):
+    assert_can_access_matter(user, matter)
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Internal notes are only visible to lawyers")
+
+
+def serialize_note(note: MatterNote):
+    return {
+        "id": note.id,
+        "matter_id": note.matter_id,
+        "user_id": note.user_id,
+        "user_name": note.user.name if note.user else None,
+        "note_type": note.note_type,
+        "content": note.content,
+        "created_at": note.created_at.isoformat() if note.created_at else None,
+    }
+
 @app.get("/profile")
 def profile(user: User = Depends(get_current_user)):
     return {
@@ -328,6 +346,20 @@ class MatterOut(BaseModel):
 class MatterUpdate(BaseModel):
     status: Optional[str] = None
     description: Optional[str] = None
+
+
+class MatterNoteCreate(BaseModel):
+    content: str
+
+
+class MatterNoteOut(BaseModel):
+    id: int
+    matter_id: int
+    user_id: int
+    user_name: Optional[str]
+    note_type: str
+    content: str
+    created_at: Optional[str]
 
 # S3 classes
 class PresignUploadRequest(BaseModel):
@@ -636,3 +668,117 @@ def update_matter(
         "lawyer_id": matter.lawyer_id,
         "created_at": matter.created_at.isoformat() if matter.created_at else None,
     }
+
+
+@app.get("/matters/{matter_id}/internal-notes", response_model=list[MatterNoteOut])
+def list_internal_notes(
+    matter_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_internal_notes(user, matter)
+
+    notes = (
+        db.query(MatterNote)
+        .options(joinedload(MatterNote.user))
+        .filter(
+            MatterNote.matter_id == matter_id,
+            MatterNote.note_type == "internal",
+        )
+        .order_by(MatterNote.created_at.desc())
+        .all()
+    )
+
+    return [serialize_note(n) for n in notes]
+
+
+@app.post("/matters/{matter_id}/internal-notes", status_code=201, response_model=MatterNoteOut)
+def create_internal_note(
+    matter_id: int,
+    body: MatterNoteCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_internal_notes(user, matter)
+
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Note content is required")
+
+    note = MatterNote(
+        matter_id=matter_id,
+        user_id=user.id,
+        note_type="internal",
+        content=content,
+    )
+
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+
+    return serialize_note(note)
+
+
+@app.get("/matters/{matter_id}/shared-updates", response_model=list[MatterNoteOut])
+def list_shared_updates(
+    matter_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    notes = (
+        db.query(MatterNote)
+        .options(joinedload(MatterNote.user))
+        .filter(
+            MatterNote.matter_id == matter_id,
+            MatterNote.note_type == "shared",
+        )
+        .order_by(MatterNote.created_at.desc())
+        .all()
+    )
+
+    return [serialize_note(n) for n in notes]
+
+
+@app.post("/matters/{matter_id}/shared-updates", status_code=201, response_model=MatterNoteOut)
+def create_shared_update(
+    matter_id: int,
+    body: MatterNoteCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    content = body.content.strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Note content is required")
+
+    note = MatterNote(
+        matter_id=matter_id,
+        user_id=user.id,
+        note_type="shared",
+        content=content,
+    )
+
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+
+    return serialize_note(note)

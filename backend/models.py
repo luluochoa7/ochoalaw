@@ -51,4 +51,18 @@ class Document(Base):
     matter = relationship("Matter", backref="documents")
     uploaded_by = relationship("User")
 
+
+class MatterNote(Base):
+    __tablename__ = "matter_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    matter_id = Column(Integer, ForeignKey("matters.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    note_type = Column(String(20), nullable=False)  # "internal" or "shared"
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    matter = relationship("Matter", backref="matter_notes")
+    user = relationship("User", backref="matter_notes")
+
     
