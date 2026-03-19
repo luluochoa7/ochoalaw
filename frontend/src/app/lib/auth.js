@@ -260,6 +260,16 @@ export async function createSharedUpdate(matterId, content) {
   return res.json();
 }
 
+export async function fetchMatterEvents(matterId) {
+  const res = await authFetch(`/matters/${matterId}/events`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchMatterEvents failed:", res.status, txt);
+    throw new Error("Failed to load activity");
+  }
+  return res.json();
+}
+
 export async function getDocumentDownloadUrl(documentId) {
   const res = await authFetch(`/documents/${documentId}/download`);
   if (!res.ok) {

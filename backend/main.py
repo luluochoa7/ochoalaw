@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
-from models import Base, ContactSubmission, User, Matter, Document, MatterNote
+from models import Base, ContactSubmission, User, Matter, Document, MatterNote, MatterEvent
 
 from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -224,6 +224,35 @@ def serialize_note(note: MatterNote):
         "created_at": note.created_at.isoformat() if note.created_at else None,
     }
 
+
+def create_matter_event(
+    db: Session,
+    matter_id: int,
+    event_type: str,
+    message: str,
+    user_id: Optional[int] = None,
+):
+    event = MatterEvent(
+        matter_id=matter_id,
+        user_id=user_id,
+        event_type=event_type,
+        message=message,
+    )
+    db.add(event)
+    return event
+
+
+def serialize_event(event: MatterEvent):
+    return {
+        "id": event.id,
+        "matter_id": event.matter_id,
+        "user_id": event.user_id,
+        "user_name": event.user.name if event.user else None,
+        "event_type": event.event_type,
+        "message": event.message,
+        "created_at": event.created_at.isoformat() if event.created_at else None,
+    }
+
 @app.get("/profile")
 def profile(user: User = Depends(get_current_user)):
     return {
@@ -361,6 +390,16 @@ class MatterNoteOut(BaseModel):
     content: str
     created_at: Optional[str]
 
+
+class MatterEventOut(BaseModel):
+    id: int
+    matter_id: int
+    user_id: Optional[int]
+    user_name: Optional[str]
+    event_type: str
+    message: str
+    created_at: Optional[str]
+
 # S3 classes
 class PresignUploadRequest(BaseModel):
     file_name: str
@@ -435,6 +474,16 @@ def create_matter(
         lawyer_id=user.id,
     )
     db.add(matter)
+    db.flush()  # assign matter.id without committing the transaction
+
+    create_matter_event(
+        db=db,
+        matter_id=matter.id,
+        event_type="matter_created",
+        message=f"Matter created by {user.name}.",
+        user_id=user.id,
+    )
+
     db.commit()
     db.refresh(matter)
 
@@ -519,6 +568,15 @@ def create_document(
         uploaded_by_id=user.id,
     )
     db.add(doc)
+
+    create_matter_event(
+        db=db,
+        matter_id=matter_id,
+        event_type="document_uploaded",
+        message=f"{user.name} uploaded document {doc.filename}.",
+        user_id=user.id,
+    )
+
     db.commit()
     db.refresh(doc)
 
@@ -645,6 +703,9 @@ def update_matter(
             detail="Only the assigned lawyer can update this matter",
         )
 
+    old_status = matter.status
+    old_description = matter.description or ""
+
     if body.status is not None:
         status_value = body.status.strip()
         if status_value not in ALLOWED_MATTER_STATUSES:
@@ -654,6 +715,26 @@ def update_matter(
     if body.description is not None:
         description_value = body.description.strip()
         matter.description = description_value if description_value else None
+
+    new_description = matter.description or ""
+
+    if body.status is not None and old_status != matter.status:
+        create_matter_event(
+            db=db,
+            matter_id=matter.id,
+            event_type="status_changed",
+            message=f"Status changed from {old_status} to {matter.status}.",
+            user_id=user.id,
+        )
+
+    if body.description is not None and old_description != new_description:
+        create_matter_event(
+            db=db,
+            matter_id=matter.id,
+            event_type="description_changed",
+            message=f"{user.name} updated the matter description.",
+            user_id=user.id,
+        )
 
     db.add(matter)
     db.commit()
@@ -668,6 +749,32 @@ def update_matter(
         "lawyer_id": matter.lawyer_id,
         "created_at": matter.created_at.isoformat() if matter.created_at else None,
     }
+
+
+@app.get("/matters/{matter_id}/events", response_model=list[MatterEventOut])
+def list_matter_events(
+    matter_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+
+    query = (
+        db.query(MatterEvent)
+        .options(joinedload(MatterEvent.user))
+        .filter(MatterEvent.matter_id == matter_id)
+    )
+
+    if user.role == "client":
+        query = query.filter(MatterEvent.event_type != "internal_note_added")
+
+    events = query.order_by(MatterEvent.created_at.desc()).all()
+
+    return [serialize_event(e) for e in events]
 
 
 @app.get("/matters/{matter_id}/internal-notes", response_model=list[MatterNoteOut])
@@ -721,6 +828,15 @@ def create_internal_note(
     )
 
     db.add(note)
+
+    create_matter_event(
+        db=db,
+        matter_id=matter_id,
+        event_type="internal_note_added",
+        message=f"{user.name} added an internal note.",
+        user_id=user.id,
+    )
+
     db.commit()
     db.refresh(note)
 
@@ -778,6 +894,15 @@ def create_shared_update(
     )
 
     db.add(note)
+
+    create_matter_event(
+        db=db,
+        matter_id=matter_id,
+        event_type="shared_update_added",
+        message=f"{user.name} added a shared update.",
+        user_id=user.id,
+    )
+
     db.commit()
     db.refresh(note)
 

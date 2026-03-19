@@ -65,4 +65,18 @@ class MatterNote(Base):
     matter = relationship("Matter", backref="matter_notes")
     user = relationship("User", backref="matter_notes")
 
+
+class MatterEvent(Base):
+    __tablename__ = "matter_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    matter_id = Column(Integer, ForeignKey("matters.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    event_type = Column(String(50), nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    matter = relationship("Matter", backref="matter_events")
+    user = relationship("User", backref="matter_events")
+
     

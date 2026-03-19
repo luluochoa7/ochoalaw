@@ -13,6 +13,7 @@ import {
   createInternalNote,
   fetchSharedUpdates,
   createSharedUpdate,
+  fetchMatterEvents,
 } from "../../../../lib/auth";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Waiting on Client", "Closed"];
@@ -47,6 +48,21 @@ export default function LawyerMatterDetailPage({ params }) {
   const [sharedUpdateContent, setSharedUpdateContent] = useState("");
   const [sharedUpdateBusy, setSharedUpdateBusy] = useState(false);
   const [sharedUpdatesError, setSharedUpdatesError] = useState("");
+  const [events, setEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState("");
+
+  async function refreshEvents() {
+    try {
+      const eventList = await fetchMatterEvents(matterId);
+      setEvents(Array.isArray(eventList) ? eventList : []);
+      setEventsError("");
+    } catch (e) {
+      setEventsError(e?.message || "Failed to load activity.");
+    } finally {
+      setEventsLoading(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +109,18 @@ export default function LawyerMatterDetailPage({ params }) {
         } finally {
           if (!cancelled) setSharedUpdatesLoading(false);
         }
+
+        try {
+          const eventList = await fetchMatterEvents(matterId);
+          if (!cancelled) {
+            setEvents(Array.isArray(eventList) ? eventList : []);
+            setEventsError("");
+          }
+        } catch (e) {
+          if (!cancelled) setEventsError(e?.message || "Failed to load activity.");
+        } finally {
+          if (!cancelled) setEventsLoading(false);
+        }
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Failed to load matter.");
       } finally {
@@ -100,6 +128,7 @@ export default function LawyerMatterDetailPage({ params }) {
           setLoading(false);
           setInternalNotesLoading(false);
           setSharedUpdatesLoading(false);
+          setEventsLoading(false);
         }
       }
     }
@@ -118,6 +147,7 @@ export default function LawyerMatterDetailPage({ params }) {
     try {
       const updated = await updateMatter(matterId, { status: nextStatus });
       setMatter(updated);
+      await refreshEvents();
       setActionSuccess("Status updated.");
     } catch (e) {
       setActionError(e?.message || "Failed to update status.");
@@ -134,6 +164,7 @@ export default function LawyerMatterDetailPage({ params }) {
       const updated = await updateMatter(matterId, { description: descriptionDraft });
       setMatter(updated);
       setDescriptionDraft(updated?.description || "");
+      await refreshEvents();
       setActionSuccess("Description updated.");
     } catch (e) {
       setActionError(e?.message || "Failed to update description.");
@@ -166,6 +197,7 @@ export default function LawyerMatterDetailPage({ params }) {
       const created = await createInternalNote(matterId, content);
       setInternalNotes((prev) => [created, ...prev]);
       setInternalNoteContent("");
+      await refreshEvents();
     } catch (e) {
       setInternalNotesError(e?.message || "Failed to create internal note.");
     } finally {
@@ -188,6 +220,7 @@ export default function LawyerMatterDetailPage({ params }) {
       const created = await createSharedUpdate(matterId, content);
       setSharedUpdates((prev) => [created, ...prev]);
       setSharedUpdateContent("");
+      await refreshEvents();
     } catch (e) {
       setSharedUpdatesError(e?.message || "Failed to create shared update.");
     } finally {
@@ -402,6 +435,38 @@ export default function LawyerMatterDetailPage({ params }) {
                 </ul>
               ) : (
                 <p className="text-sm text-slate-500">No shared updates yet.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900">Activity</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Timeline of activity for this matter.
+            </p>
+
+            <div className="mt-6">
+              {eventsLoading ? (
+                <p className="text-sm text-slate-600">Loading activity...</p>
+              ) : eventsError ? (
+                <p className="text-sm text-red-600">{eventsError}</p>
+              ) : events.length ? (
+                <ul className="space-y-3">
+                  {events.map((ev) => (
+                    <li key={ev.id} className="rounded-xl border bg-slate-50 p-4">
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <p className="text-sm font-medium text-slate-900">
+                          {ev.message}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {ev.created_at ? new Date(ev.created_at).toLocaleString() : ""}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500">No activity yet.</p>
               )}
             </div>
           </div>
