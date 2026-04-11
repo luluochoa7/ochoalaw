@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Form, Depends, HTTPException, status, Query
+from fastapi import FastAPI, Form, Depends, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -88,19 +88,6 @@ def root():
 def health():
     return {"status": "ok"}
 
-@app.get("/test-email")
-def test_email():
-    result = send_transactional_email(
-        to_email=os.getenv("CONTACT_NOTIFICATION_EMAIL"),
-        subject="Test email from Ochoa Law Portal",
-        html_body="""
-            <h2>Resend is working</h2>
-            <p>This is your first test email from the Ochoa Law portal.</p>
-        """,
-        text_body="Resend is working. This is your first test email from the Ochoa Law portal.",
-    )
-    return {"status": "sent", "result": result}
-
 @app.get("/test-db")
 def test_db(db: Session = Depends(get_db)):
     try:
@@ -114,6 +101,7 @@ def test_db(db: Session = Depends(get_db)):
 
 @app.post("/contact")
 def contact(
+    request: Request,
     name: str = Form(...),
     email: str = Form(...),
     phone: Optional[str] = Form(None),  # Optional field
@@ -160,6 +148,11 @@ def contact(
                 )
             except Exception as email_error:
                 print(f"Contact form email failed: {email_error}")
+
+        # AJAX/fetch submissions should receive JSON so the frontend can keep
+        # the browser on the public site domain and redirect client-side.
+        if request.headers.get("x-requested-with") == "fetch":
+            return {"success": True}
 
         return RedirectResponse(
             url="https://ochoalaw.vercel.app/thank-you",

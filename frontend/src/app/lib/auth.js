@@ -80,6 +80,36 @@ export async function signup(name, email, password) {
   return res.json(); // { message, user_id }
 }
 
+export async function submitContactForm({ name, email, phone, message }) {
+  const body = new FormData();
+  body.append("name", name);
+  body.append("email", email);
+  if (phone) body.append("phone", phone);
+  body.append("message", message);
+
+  const res = await fetch(`${API}/contact`, {
+    method: "POST",
+    headers: { "x-requested-with": "fetch" },
+    body,
+  });
+
+  if (!res.ok) {
+    let detail = "Failed to submit contact form.";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string" && data.detail.trim()) {
+        detail = data.detail;
+      }
+    } catch {
+      const txt = await res.text().catch(() => "");
+      if (txt) detail = txt;
+    }
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
 // Call FastAPI /profile to get user + role
 export async function fetchMe() {
   const res = await authFetch("/profile"); // IMPORTANT: match backend route

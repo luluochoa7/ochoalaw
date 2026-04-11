@@ -1,6 +1,49 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { submitContactForm } from "../lib/auth";
 
 export default function ContactUs() {
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSubmitError("");
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const honeypot = String(formData.get("_gotcha") || "").trim();
+    if (honeypot) {
+      router.push("/thank-you");
+      return;
+    }
+
+    const name = String(formData.get("name") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const phone = String(formData.get("phone") || "").trim();
+    const message = String(formData.get("message") || "").trim();
+
+    if (!name || !email || !message) {
+      setSubmitError("Name, email, and message are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await submitContactForm({ name, email, phone, message });
+      router.push("/thank-you");
+    } catch (err) {
+      setSubmitError(err?.message || "Failed to submit the form.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" id="top">
       {/* Header band — classic vibe */}
@@ -18,11 +61,7 @@ export default function ContactUs() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 -mt-10 pb-16">
           <div className="rounded-2xl bg-white shadow-xl border">
             <div className="p-6 sm:p-10">
-              <form
-                action="https://ochoalaw.onrender.com/contact"
-                method="POST"
-                className="space-y-6"
-              >
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {/* keep names/ids exact so backend keeps working */}
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-slate-800">
@@ -85,7 +124,19 @@ export default function ContactUs() {
                 </div>
 
                 {/* Honeypot (ignored by backend, reduces spam) */}
-                <input type="text" name="_gotcha" className="hidden" tabIndex={-1} autoComplete="off" />
+                <input
+                  type="text"
+                  name="_gotcha"
+                  className="hidden"
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+
+                {submitError ? (
+                  <p className="text-sm text-red-600" role="alert">
+                    {submitError}
+                  </p>
+                ) : null}
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <p className="text-sm text-slate-500">
@@ -93,9 +144,10 @@ export default function ContactUs() {
                   </p>
                   <button
                     type="submit"
-                    className="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+                    disabled={isSubmitting}
+                    className="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    Submit
+                    {isSubmitting ? "Submitting..." : "Submit"}
                   </button>
                 </div>
               </form>
