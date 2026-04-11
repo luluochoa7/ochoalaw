@@ -10,6 +10,7 @@ from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
 from models import Base, ContactSubmission, User, Matter, Document, MatterNote, MatterEvent
+from email_service import send_transactional_email
 
 from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
 
@@ -87,6 +88,19 @@ def root():
 def health():
     return {"status": "ok"}
 
+@app.get("/test-email")
+def test_email():
+    result = send_transactional_email(
+        to_email=os.getenv("CONTACT_NOTIFICATION_EMAIL"),
+        subject="Test email from Ochoa Law Portal",
+        html_body="""
+            <h2>Resend is working</h2>
+            <p>This is your first test email from the Ochoa Law portal.</p>
+        """,
+        text_body="Resend is working. This is your first test email from the Ochoa Law portal.",
+    )
+    return {"status": "sent", "result": result}
+
 @app.get("/test-db")
 def test_db(db: Session = Depends(get_db)):
     try:
@@ -120,6 +134,32 @@ def contact(
         db.add(submission)
         db.commit()
         db.refresh(submission)
+
+        contact_notification_email = os.getenv("CONTACT_NOTIFICATION_EMAIL")
+
+        if contact_notification_email:
+            try:
+                send_transactional_email(
+                    to_email=contact_notification_email,
+                    subject=f"New contact form submission from {submission.name}",
+                    html_body=f"""
+                        <h2>New Contact Form Submission</h2>
+                        <p><strong>Name:</strong> {submission.name}</p>
+                        <p><strong>Email:</strong> {submission.email}</p>
+                        <p><strong>Phone:</strong> {submission.phone or "Not provided"}</p>
+                        <p><strong>Message:</strong></p>
+                        <p>{submission.message}</p>
+                    """,
+                    text_body=(
+                        f"New Contact Form Submission\n\n"
+                        f"Name: {submission.name}\n"
+                        f"Email: {submission.email}\n"
+                        f"Phone: {submission.phone or 'Not provided'}\n\n"
+                        f"Message:\n{submission.message}"
+                    ),
+                )
+            except Exception as email_error:
+                print(f"Contact form email failed: {email_error}")
 
         return RedirectResponse(
             url="https://ochoalaw.vercel.app/thank-you",
