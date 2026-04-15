@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   acceptInvitation,
@@ -16,7 +16,7 @@ function fmtDateTime(iso) {
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = (searchParams.get("token") || "").trim();
@@ -187,5 +187,33 @@ export default function AcceptInvitePage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function AcceptInviteFallback() {
+  return (
+    <main className="min-h-screen bg-gray-50 mt-16">
+      <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
+        <div className="container mx-auto px-4 py-14 text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-white">Client Invitation</h1>
+          <p className="mt-3 text-blue-100">Set your password to access your secure client portal.</p>
+        </div>
+      </section>
+      <section className="-mt-10 pb-16">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-lg rounded-2xl bg-white shadow-xl border p-8">
+            <p className="text-sm text-slate-600">Loading invitation...</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={<AcceptInviteFallback />}>
+      <AcceptInviteContent />
+    </Suspense>
   );
 }
