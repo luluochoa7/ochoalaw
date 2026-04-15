@@ -19,6 +19,7 @@ from models import (
     Matter,
     MatterEvent,
     MatterNote,
+    PasswordResetToken,
     User,
 )
 from email_service import send_transactional_email
@@ -454,6 +455,15 @@ class ClientInviteAccept(BaseModel):
     token: str
     password: str
 
+
+class PasswordResetRequest(BaseModel):
+    email: str
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    password: str
+
 # S3 classes
 class PresignUploadRequest(BaseModel):
     file_name: str
@@ -637,6 +647,114 @@ def accept_client_invitation(
             "name": user.name,
         },
     }
+
+
+@app.post("/password-reset/request")
+def request_password_reset(
+    body: PasswordResetRequest,
+    db: Session = Depends(get_db),
+):
+    email = body.email.strip().lower()
+
+    # Always return success shape to avoid leaking whether email exists.
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return {"message": "If that email exists, a reset link has been sent."}
+
+    token = token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at,
+    )
+    db.add(reset_token)
+    db.commit()
+    db.refresh(reset_token)
+
+    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
+    reset_link = f"{frontend_base}/reset-password?token={token}"
+
+    try:
+        send_transactional_email(
+            to_email=user.email,
+            subject="Reset your Ochoa Lawyers portal password",
+            html_body=f"""
+                <h2>Password Reset</h2>
+                <p>Hello {user.name},</p>
+                <p>We received a request to reset your password.</p>
+                <p><a href="{reset_link}">Click here to reset your password</a></p>
+                <p>This link expires in 1 hour.</p>
+                <p>If you did not request this, you can ignore this email.</p>
+            """,
+            text_body=(
+                f"Hello {user.name},\n\n"
+                f"We received a request to reset your password.\n\n"
+                f"Use this link to reset it:\n{reset_link}\n\n"
+                f"This link expires in 1 hour.\n\n"
+                f"If you did not request this, you can ignore this email."
+            ),
+        )
+    except Exception as email_error:
+        print(f"Password reset email failed: {email_error}")
+
+    return {"message": "If that email exists, a reset link has been sent."}
+
+
+@app.get("/password-reset/{token}")
+def get_password_reset_token(token: str, db: Session = Depends(get_db)):
+    reset_token = (
+        db.query(PasswordResetToken)
+        .options(joinedload(PasswordResetToken.user))
+        .filter(PasswordResetToken.token == token)
+        .first()
+    )
+    if not reset_token:
+        raise HTTPException(status_code=404, detail="Reset token not found")
+
+    if reset_token.used_at is not None:
+        raise HTTPException(status_code=400, detail="Reset token has already been used")
+
+    if reset_token.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+
+    return {
+        "email": reset_token.user.email if reset_token.user else None,
+        "expires_at": reset_token.expires_at.isoformat(),
+    }
+
+
+@app.post("/password-reset/confirm")
+def confirm_password_reset(
+    body: PasswordResetConfirm,
+    db: Session = Depends(get_db),
+):
+    reset_token = (
+        db.query(PasswordResetToken)
+        .options(joinedload(PasswordResetToken.user))
+        .filter(PasswordResetToken.token == body.token)
+        .first()
+    )
+    if not reset_token:
+        raise HTTPException(status_code=404, detail="Reset token not found")
+
+    if reset_token.used_at is not None:
+        raise HTTPException(status_code=400, detail="Reset token has already been used")
+
+    if reset_token.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Reset token has expired")
+
+    user = reset_token.user
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.password_hash = hash_password(body.password)
+    reset_token.used_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    return {"message": "Password reset successful"}
 
 @app.post("/matters", status_code=201)
 def create_matter(

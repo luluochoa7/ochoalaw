@@ -254,6 +254,58 @@ export async function acceptInvitation(token, password) {
   return res.json();
 }
 
+export async function requestPasswordReset(email) {
+  const res = await fetch(`${API}/password-reset/request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("requestPasswordReset failed:", res.status, txt);
+    throw new Error("Failed to request password reset");
+  }
+
+  return res.json();
+}
+
+export async function fetchPasswordResetToken(token) {
+  const res = await fetch(`${API}/password-reset/${token}`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchPasswordResetToken failed:", res.status, txt);
+    throw new Error("Reset link is invalid or expired");
+  }
+
+  return res.json();
+}
+
+export async function confirmPasswordReset(token, password) {
+  const res = await fetch(`${API}/password-reset/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+
+  if (!res.ok) {
+    let detail = "Failed to reset password";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string" && data.detail.trim()) {
+        detail = data.detail;
+      }
+    } catch {
+      const txt = await res.text().catch(() => "");
+      if (txt) detail = txt;
+    }
+    console.error("confirmPasswordReset failed:", res.status, detail);
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
 // --- DOCUMENT UPLOAD FLOW --- //
 
 export async function presignMatterUpload(matterId, fileName, contentType) {

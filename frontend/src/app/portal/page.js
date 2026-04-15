@@ -1,6 +1,7 @@
 // src/app/portal/page.js
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginWithEmail, fetchMe, notifyAuthChanged, signup } from "../lib/auth";
@@ -161,13 +162,9 @@ export default function PortalPage() {
 
               {/* footer links */}
               <div className="mt-6 flex items-center justify-between text-sm">
-                <button
-                  type="button"
-                  className="text-slate-700 hover:text-slate-900"
-                  onClick={() => alert("Password reset flow coming soon.")}
-                >
+                <Link href="/forgot-password" className="text-slate-700 hover:text-slate-900">
                   Forgot password?
-                </button>
+                </Link>
                 <button
                   type="button"
                   className="text-slate-700 hover:text-slate-900 font-medium"
