@@ -194,6 +194,66 @@ export async function searchClients(query) {
   return res.json(); // [{id,name,email}]
 }
 
+export async function createClientInvitation(payload) {
+  const res = await authFetch("/lawyer/invitations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let detail = "Failed to create invitation";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string" && data.detail.trim()) {
+        detail = data.detail;
+      }
+    } catch {
+      const txt = await res.text().catch(() => "");
+      if (txt) detail = txt;
+    }
+    console.error("createClientInvitation failed:", res.status, detail);
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+export async function fetchInvitation(token) {
+  const res = await fetch(`${API}/invitations/${token}`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchInvitation failed:", res.status, txt);
+    throw new Error("Invitation is invalid or expired");
+  }
+  return res.json();
+}
+
+export async function acceptInvitation(token, password) {
+  const res = await fetch(`${API}/invitations/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password }),
+  });
+
+  if (!res.ok) {
+    let detail = "Failed to accept invitation";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string" && data.detail.trim()) {
+        detail = data.detail;
+      }
+    } catch {
+      const txt = await res.text().catch(() => "");
+      if (txt) detail = txt;
+    }
+    console.error("acceptInvitation failed:", res.status, detail);
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
 // --- DOCUMENT UPLOAD FLOW --- //
 
 export async function presignMatterUpload(matterId, fileName, contentType) {

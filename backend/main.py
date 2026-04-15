@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
+from secrets import token_urlsafe
 from typing import Optional
 
 from fastapi import FastAPI, Form, Depends, HTTPException, status, Query, Request
@@ -9,7 +11,16 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
-from models import Base, ContactSubmission, User, Matter, Document, MatterNote, MatterEvent
+from models import (
+    Base,
+    ClientInvitation,
+    ContactSubmission,
+    Document,
+    Matter,
+    MatterEvent,
+    MatterNote,
+    User,
+)
 from email_service import send_transactional_email
 
 from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
@@ -433,6 +444,16 @@ class MatterEventOut(BaseModel):
     message: str
     created_at: Optional[str]
 
+
+class ClientInviteCreate(BaseModel):
+    name: str
+    email: str
+
+
+class ClientInviteAccept(BaseModel):
+    token: str
+    password: str
+
 # S3 classes
 class PresignUploadRequest(BaseModel):
     file_name: str
@@ -481,6 +502,141 @@ def search_clients(
     )
 
     return [{"id": u.id, "name": u.name, "email": u.email} for u in results]
+
+
+@app.post("/lawyer/invitations", status_code=201)
+def create_client_invitation(
+    body: ClientInviteCreate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Only lawyers can invite clients")
+
+    email = body.email.strip().lower()
+    name = body.name.strip()
+
+    if not email or not name:
+        raise HTTPException(status_code=400, detail="Name and email are required")
+
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+
+    token = token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    invitation = ClientInvitation(
+        name=name,
+        email=email,
+        token=token,
+        invited_by_user_id=user.id,
+        expires_at=expires_at,
+    )
+
+    db.add(invitation)
+    db.commit()
+    db.refresh(invitation)
+
+    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
+    invite_link = f"{frontend_base}/portal/accept-invite?token={token}"
+
+    send_transactional_email(
+        to_email=email,
+        subject="You have been invited to Ochoa Lawyers Portal",
+        html_body=f"""
+            <h2>You have been invited</h2>
+            <p>Hello {name},</p>
+            <p>You have been invited to access the Ochoa Lawyers client portal.</p>
+            <p><a href="{invite_link}">Click here to set your password and access your portal</a></p>
+            <p>This link expires in 7 days.</p>
+        """,
+        text_body=(
+            f"Hello {name},\n\n"
+            f"You have been invited to access the Ochoa Lawyers client portal.\n\n"
+            f"Use this link to set your password:\n{invite_link}\n\n"
+            f"This link expires in 7 days."
+        ),
+    )
+
+    return {
+        "id": invitation.id,
+        "email": invitation.email,
+        "expires_at": invitation.expires_at.isoformat(),
+    }
+
+
+@app.get("/invitations/{token}")
+def get_invitation(token: str, db: Session = Depends(get_db)):
+    invitation = db.query(ClientInvitation).filter(ClientInvitation.token == token).first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.accepted_at is not None:
+        raise HTTPException(status_code=400, detail="Invitation has already been accepted")
+
+    if invitation.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invitation has expired")
+
+    return {
+        "name": invitation.name,
+        "email": invitation.email,
+        "expires_at": invitation.expires_at.isoformat(),
+    }
+
+
+@app.post("/invitations/accept", status_code=201)
+def accept_client_invitation(
+    body: ClientInviteAccept,
+    db: Session = Depends(get_db),
+):
+    invitation = db.query(ClientInvitation).filter(ClientInvitation.token == body.token).first()
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+
+    if invitation.accepted_at is not None:
+        raise HTTPException(status_code=400, detail="Invitation has already been accepted")
+
+    if invitation.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invitation has expired")
+
+    existing_user = db.query(User).filter(User.email == invitation.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="A user with this email already exists")
+
+    user = User(
+        name=invitation.name,
+        email=invitation.email,
+        password_hash=hash_password(body.password),
+        role="client",
+    )
+    db.add(user)
+    db.flush()
+
+    invitation.accepted_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(user)
+
+    access_token = create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        }
+    )
+
+    return {
+        "message": "Invitation accepted",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "name": user.name,
+        },
+    }
 
 @app.post("/matters", status_code=201)
 def create_matter(

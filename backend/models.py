@@ -79,4 +79,17 @@ class MatterEvent(Base):
     matter = relationship("Matter", backref="matter_events")
     user = relationship("User", backref="matter_events")
 
-    
+
+class ClientInvitation(Base):
+    __tablename__ = "client_invitations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False, index=True)
+    token = Column(String, nullable=False, unique=True, index=True)
+    invited_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    invited_by = relationship("User", backref="client_invitations")

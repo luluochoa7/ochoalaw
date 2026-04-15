@@ -7,6 +7,7 @@ import {
   fetchMe,
   fetchMyMatters,
   createMatter,
+  createClientInvitation,
   searchClients,
   uploadMatterFile,
   fetchMatterDocuments,
@@ -279,6 +280,14 @@ export default function LawyerDashboardPage() {
   const [selectedClient, setSelectedClient] = useState(null);
   const [description, setDescription] = useState("");
 
+  // invite client modal + fields
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState(null);
+  const [inviteSuccess, setInviteSuccess] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+
   useEffect(() => {
     let cancelled = false;
 
@@ -387,6 +396,33 @@ export default function LawyerDashboardPage() {
     }
   }
 
+  async function handleInviteClient(e) {
+    e.preventDefault();
+    setInviteError(null);
+    setInviteSuccess("");
+
+    const name = inviteName.trim();
+    const email = inviteEmail.trim().toLowerCase();
+
+    if (!name || !email) {
+      setInviteError("Client name and email are required.");
+      return;
+    }
+
+    setInviteLoading(true);
+    try {
+      await createClientInvitation({ name, email });
+      setInviteSuccess(`Invitation sent to ${email}.`);
+      setInviteName("");
+      setInviteEmail("");
+    } catch (err) {
+      console.error(err);
+      setInviteError(err?.message || "Failed to send invitation.");
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
   if (checkingRole) {
     return <div className="mt-24 text-center">Loading your dashboard...</div>;
   }
@@ -419,7 +455,11 @@ export default function LawyerDashboardPage() {
               <button
                 className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-white hover:bg-white/20"
                 type="button"
-                onClick={() => alert("Invite client flow coming soon.")}
+                onClick={() => {
+                  setInviteError(null);
+                  setInviteSuccess("");
+                  setShowInvite(true);
+                }}
               >
                 Invite client
               </button>
@@ -665,7 +705,7 @@ export default function LawyerDashboardPage() {
                     )}
 
                     <p className="mt-2 text-xs text-slate-500">
-                      Client must have already signed up (for now).
+                      Client must already have an account. Use "Invite client" for new clients.
                     </p>
                   </>
                 )}
@@ -692,6 +732,69 @@ export default function LawyerDashboardPage() {
                 className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 {createLoading ? "Creating…" : "Create matter"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Client Modal */}
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl border p-6 relative">
+            <button
+              type="button"
+              onClick={() => setShowInvite(false)}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-xl font-semibold text-slate-800 text-center">
+              Invite a new client
+            </h2>
+            <p className="mt-2 text-sm text-slate-600 text-center">
+              Send a secure portal invitation so the client can set a password.
+            </p>
+
+            <form className="mt-5 space-y-4" onSubmit={handleInviteClient}>
+              <div>
+                <label className="block text-sm font-medium text-slate-800">
+                  Client name
+                </label>
+                <input
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  type="text"
+                  required
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  placeholder="e.g., Jane Client"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-800">
+                  Client email
+                </label>
+                <input
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  type="email"
+                  required
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  placeholder="client@example.com"
+                />
+              </div>
+
+              {inviteError && <p className="text-sm text-red-600">{inviteError}</p>}
+              {inviteSuccess && <p className="text-sm text-green-600">{inviteSuccess}</p>}
+
+              <button
+                type="submit"
+                disabled={inviteLoading}
+                className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {inviteLoading ? "Sending..." : "Send invitation"}
               </button>
             </form>
           </div>
