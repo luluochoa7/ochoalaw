@@ -53,10 +53,8 @@ export default function ForgotPasswordPage() {
             {requestSent ? (
               <div className="space-y-4">
                 <p className="text-sm text-green-600">
-                  {successMessage || "If that email exists, a reset link has been sent."}
-                </p>
-                <p className="text-sm text-slate-600">
-                  Check your inbox and spam folder for the reset email.
+                  {(successMessage || "If that email exists, a reset link has been sent.") +
+                    " Check your inbox and spam folder for the reset email."}
                 </p>
                 <Link
                   href="/portal"
