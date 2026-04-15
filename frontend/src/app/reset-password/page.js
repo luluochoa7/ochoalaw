@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   confirmPasswordReset,
   fetchPasswordResetToken,
@@ -16,6 +16,7 @@ function fmtDateTime(iso) {
 }
 
 function ResetPasswordContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const token = (searchParams.get("token") || "").trim();
 
@@ -28,6 +29,7 @@ function ResetPasswordContent() {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+  const [resetComplete, setResetComplete] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +66,7 @@ function ResetPasswordContent() {
     e.preventDefault();
     setSubmitError("");
     setSubmitSuccess("");
+    setResetComplete(false);
 
     const pw = password.trim();
     const confirm = confirmPassword.trim();
@@ -87,6 +90,7 @@ function ResetPasswordContent() {
       setSubmitSuccess(result?.message || "Password reset successful.");
       setPassword("");
       setConfirmPassword("");
+      setResetComplete(true);
     } catch (err) {
       setSubmitError(err?.message || "Failed to reset password.");
     } finally {
@@ -129,60 +133,68 @@ function ResetPasswordContent() {
                   </p>
                 </div>
 
-                <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-                  <div>
-                    <label
-                      htmlFor="reset-password"
-                      className="block text-sm font-medium text-slate-800"
+                {resetComplete ? (
+                  <div className="mt-6 space-y-4">
+                    <p className="text-sm text-green-600">
+                      {submitSuccess || "Your password has been reset successfully."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => router.push("/portal")}
+                      className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
                     >
-                      New password
-                    </label>
-                    <input
-                      id="reset-password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
-                      placeholder="Choose a secure password"
-                    />
+                      Back to login
+                    </button>
                   </div>
+                ) : (
+                  <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+                    <div>
+                      <label
+                        htmlFor="reset-password"
+                        className="block text-sm font-medium text-slate-800"
+                      >
+                        New password
+                      </label>
+                      <input
+                        id="reset-password"
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                        placeholder="Choose a secure password"
+                      />
+                    </div>
 
-                  <div>
-                    <label
-                      htmlFor="reset-password-confirm"
-                      className="block text-sm font-medium text-slate-800"
+                    <div>
+                      <label
+                        htmlFor="reset-password-confirm"
+                        className="block text-sm font-medium text-slate-800"
+                      >
+                        Confirm new password
+                      </label>
+                      <input
+                        id="reset-password-confirm"
+                        type="password"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                        placeholder="Re-enter your new password"
+                      />
+                    </div>
+
+                    {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
+
+                    <button
+                      type="submit"
+                      disabled={submitLoading}
+                      className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
                     >
-                      Confirm new password
-                    </label>
-                    <input
-                      id="reset-password-confirm"
-                      type="password"
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
-                      placeholder="Re-enter your new password"
-                    />
-                  </div>
-
-                  {submitError ? <p className="text-sm text-red-600">{submitError}</p> : null}
-                  {submitSuccess ? <p className="text-sm text-green-600">{submitSuccess}</p> : null}
-
-                  <button
-                    type="submit"
-                    disabled={submitLoading}
-                    className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    {submitLoading ? "Resetting..." : "Reset password"}
-                  </button>
-                </form>
-
-                <div className="mt-6 text-center">
-                  <Link href="/portal" className="text-sm text-blue-700 hover:underline">
-                    Back to login
-                  </Link>
-                </div>
+                      {submitLoading ? "Resetting..." : "Reset password"}
+                    </button>
+                  </form>
+                )}
               </>
             )}
           </div>
