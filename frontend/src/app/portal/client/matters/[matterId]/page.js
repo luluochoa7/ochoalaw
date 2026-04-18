@@ -55,14 +55,23 @@ function linksAreExpired(links) {
   return exp.getTime() - Date.now() < 30 * 1000;
 }
 
+function getErrorMessage(error, fallback) {
+  if (!error) return fallback;
+  if (typeof error === "string") return error;
+  if (typeof error?.message === "string" && error.message.trim()) return error.message;
+  return fallback;
+}
+
 export default function ClientMatterDetailPage({ params }) {
   const router = useRouter();
   const { matterId } = params;
 
   const [matter, setMatter] = useState(null);
   const [docs, setDocs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [matterLoading, setMatterLoading] = useState(true);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
   const [actionError, setActionError] = useState("");
   const [sharedUpdates, setSharedUpdates] = useState([]);
   const [sharedUpdatesLoading, setSharedUpdatesLoading] = useState(true);
@@ -99,9 +108,51 @@ export default function ClientMatterDetailPage({ params }) {
       setEvents(Array.isArray(eventList) ? eventList : []);
       setEventsError("");
     } catch (e) {
-      setEventsError(e?.message || "Failed to load activity.");
-    } finally {
-      setEventsLoading(false);
+      setEventsError(getErrorMessage(e, "Failed to load activity."));
+    }
+  }
+
+  async function refreshDocumentsAndEvents() {
+    const [documentsResult, eventsResult] = await Promise.allSettled([
+      fetchMatterDocuments(matterId),
+      fetchMatterEvents(matterId),
+    ]);
+
+    if (documentsResult.status === "fulfilled") {
+      setDocs(Array.isArray(documentsResult.value) ? documentsResult.value : []);
+      setDocumentsError("");
+    } else {
+      setDocumentsError(getErrorMessage(documentsResult.reason, "Failed to load documents."));
+    }
+
+    if (eventsResult.status === "fulfilled") {
+      setEvents(Array.isArray(eventsResult.value) ? eventsResult.value : []);
+      setEventsError("");
+    } else {
+      setEventsError(getErrorMessage(eventsResult.reason, "Failed to load activity."));
+    }
+  }
+
+  async function refreshSharedUpdatesAndEvents() {
+    const [sharedResult, eventsResult] = await Promise.allSettled([
+      fetchSharedUpdates(matterId),
+      fetchMatterEvents(matterId),
+    ]);
+
+    if (sharedResult.status === "fulfilled") {
+      setSharedUpdates(Array.isArray(sharedResult.value) ? sharedResult.value : []);
+      setSharedUpdatesError("");
+    } else {
+      setSharedUpdatesError(
+        getErrorMessage(sharedResult.reason, "Failed to load shared updates.")
+      );
+    }
+
+    if (eventsResult.status === "fulfilled") {
+      setEvents(Array.isArray(eventsResult.value) ? eventsResult.value : []);
+      setEventsError("");
+    } else {
+      setEventsError(getErrorMessage(eventsResult.reason, "Failed to load activity."));
     }
   }
 
@@ -109,6 +160,14 @@ export default function ClientMatterDetailPage({ params }) {
     let cancelled = false;
 
     async function load() {
+      if (!cancelled) {
+        setPageError("");
+        setMatterLoading(true);
+        setDocumentsLoading(true);
+        setSharedUpdatesLoading(true);
+        setEventsLoading(true);
+      }
+
       try {
         const me = await fetchMe();
         if (!me || me.role !== "client") {
@@ -116,44 +175,59 @@ export default function ClientMatterDetailPage({ params }) {
           return;
         }
 
-        const [matterData, documents] = await Promise.all([
+        const [matterResult, documentsResult, sharedResult, eventsResult] =
+          await Promise.allSettled([
           fetchMatter(matterId),
           fetchMatterDocuments(matterId),
+          fetchSharedUpdates(matterId),
+          fetchMatterEvents(matterId),
         ]);
 
-        if (!cancelled) {
-          setMatter(matterData ?? null);
-          setDocs(Array.isArray(documents) ? documents : []);
-        }
+        if (cancelled) return;
 
-        try {
-          const shared = await fetchSharedUpdates(matterId);
-          if (!cancelled) setSharedUpdates(Array.isArray(shared) ? shared : []);
-        } catch (e) {
-          if (!cancelled) {
-            setSharedUpdatesError(e?.message || "Failed to load shared updates.");
-            setSharedUpdates([]);
-          }
-        } finally {
-          if (!cancelled) setSharedUpdatesLoading(false);
+        if (matterResult.status === "fulfilled") {
+          setMatter(matterResult.value ?? null);
+        } else {
+          setMatter(null);
+          setPageError(getErrorMessage(matterResult.reason, "Failed to load matter."));
         }
+        setMatterLoading(false);
 
-        try {
-          const eventList = await fetchMatterEvents(matterId);
-          if (!cancelled) {
-            setEvents(Array.isArray(eventList) ? eventList : []);
-            setEventsError("");
-          }
-        } catch (e) {
-          if (!cancelled) setEventsError(e?.message || "Failed to load activity.");
-        } finally {
-          if (!cancelled) setEventsLoading(false);
+        if (documentsResult.status === "fulfilled") {
+          setDocs(Array.isArray(documentsResult.value) ? documentsResult.value : []);
+          setDocumentsError("");
+        } else {
+          setDocs([]);
+          setDocumentsError(getErrorMessage(documentsResult.reason, "Failed to load documents."));
         }
+        setDocumentsLoading(false);
+
+        if (sharedResult.status === "fulfilled") {
+          setSharedUpdates(Array.isArray(sharedResult.value) ? sharedResult.value : []);
+          setSharedUpdatesError("");
+        } else {
+          setSharedUpdates([]);
+          setSharedUpdatesError(
+            getErrorMessage(sharedResult.reason, "Failed to load shared updates.")
+          );
+        }
+        setSharedUpdatesLoading(false);
+
+        if (eventsResult.status === "fulfilled") {
+          setEvents(Array.isArray(eventsResult.value) ? eventsResult.value : []);
+          setEventsError("");
+        } else {
+          setEvents([]);
+          setEventsError(getErrorMessage(eventsResult.reason, "Failed to load activity."));
+        }
+        setEventsLoading(false);
       } catch (e) {
-        if (!cancelled) setErr(e?.message || "Failed to load matter.");
+        if (!cancelled) setPageError(getErrorMessage(e, "Failed to load workspace."));
       } finally {
         if (!cancelled) {
-          setLoading(false);
+          setAuthLoading(false);
+          setMatterLoading(false);
+          setDocumentsLoading(false);
           setSharedUpdatesLoading(false);
           setEventsLoading(false);
         }
@@ -193,8 +267,9 @@ export default function ClientMatterDetailPage({ params }) {
     try {
       await ensureDocumentLinks(doc);
     } catch (e) {
-      setPreviewError(e?.message || "Could not load document.");
-      setActionError(e?.message || "Could not load document.");
+      const message = getErrorMessage(e, "Could not load document.");
+      setPreviewError(message);
+      setActionError(message);
     } finally {
       setPreviewLoading(false);
     }
@@ -209,8 +284,9 @@ export default function ClientMatterDetailPage({ params }) {
         window.location.assign(links.download_url);
       }
     } catch (e) {
-      setActionError(e?.message || "Could not download document.");
-      setDocumentsError(e?.message || "Could not download document.");
+      const message = getErrorMessage(e, "Could not download document.");
+      setActionError(message);
+      setDocumentsError(message);
     }
   }
 
@@ -230,19 +306,19 @@ export default function ClientMatterDetailPage({ params }) {
     }
 
     setUploadBusy(true);
+    setDocumentsLoading(true);
     try {
       await uploadMatterFile(Number(matterId), uploadFile);
-      const nextDocs = await fetchMatterDocuments(matterId);
-      setDocs(Array.isArray(nextDocs) ? nextDocs : []);
       setUploadFile(null);
-      await refreshEvents();
+      await refreshDocumentsAndEvents();
 
       const fileInput = document.getElementById("client-workspace-upload-input");
       if (fileInput) fileInput.value = "";
     } catch (e) {
-      setDocumentsError(e?.message || "Upload failed.");
+      setDocumentsError(getErrorMessage(e, "Upload failed."));
     } finally {
       setUploadBusy(false);
+      setDocumentsLoading(false);
     }
   }
 
@@ -258,56 +334,79 @@ export default function ClientMatterDetailPage({ params }) {
 
     setSharedUpdateBusy(true);
     try {
-      const created = await createSharedUpdate(matterId, content);
-      setSharedUpdates((prev) => [created, ...prev]);
+      await createSharedUpdate(matterId, content);
       setSharedUpdateContent("");
-      await refreshEvents();
+      await refreshSharedUpdatesAndEvents();
     } catch (e) {
-      setSharedUpdatesError(e?.message || "Failed to create shared update.");
+      setSharedUpdatesError(getErrorMessage(e, "Failed to create shared update."));
     } finally {
       setSharedUpdateBusy(false);
     }
   }
 
+  if (authLoading) {
+    return (
+      <div className="container mx-auto px-4 py-10">
+        <p className="text-sm text-slate-600">Loading workspace...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-10">
-      {loading ? (
-        <p className="text-sm text-slate-600">Loading…</p>
-      ) : err ? (
-        <p className="text-sm text-red-600">{err}</p>
-      ) : (
-        <>
-          <Link href="/portal/client" className="text-sm text-blue-700 hover:underline">
-            ← Back to dashboard
-          </Link>
+      <Link href="/portal/client" className="text-sm text-blue-700 hover:underline">
+        ← Back to dashboard
+      </Link>
 
-          <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">{matter?.title}</h1>
+      {pageError && <p className="mt-4 text-sm text-red-600">{pageError}</p>}
+
+      <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          {matterLoading ? (
+            <>
+              <h1 className="text-2xl font-bold text-slate-900">Loading matter...</h1>
+              <p className="mt-1 text-xs text-slate-500">Please wait while we load details.</p>
+            </>
+          ) : matter ? (
+            <>
+              <h1 className="text-2xl font-bold text-slate-900">{matter.title}</h1>
               <p className="mt-1 text-xs text-slate-500">
-                Matter #{matter?.id} • Created {formatDateTime(matter?.created_at)}
+                Matter #{matter.id} • Created {formatDateTime(matter.created_at)}
               </p>
-            </div>
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">
-              {matter?.status || "Open"}
-            </span>
-          </div>
-
-          <div className="mt-6 grid gap-6 lg:grid-cols-3">
-            <div className="rounded-2xl bg-white border shadow-xl p-6 lg:col-span-2">
-              <h2 className="text-lg font-semibold text-slate-900">Matter Details</h2>
-              <p className="mt-4 text-sm text-slate-700 whitespace-pre-wrap">
-                {matter?.description || "No description provided yet."}
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-slate-900">Matter unavailable</h1>
+              <p className="mt-1 text-xs text-slate-500">
+                This matter could not be loaded or you do not have access.
               </p>
-            </div>
+            </>
+          )}
+        </div>
+        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">
+          {matterLoading ? "Loading..." : matter?.status || "Open"}
+        </span>
+      </div>
 
-            <div className="rounded-2xl bg-white border shadow-xl p-6">
-              <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Open documents in a modal or download them directly.
-              </p>
+      <div className="mt-6 grid gap-6 lg:grid-cols-3">
+        <div className="rounded-2xl bg-white border shadow-xl p-6 lg:col-span-2">
+          <h2 className="text-lg font-semibold text-slate-900">Matter Details</h2>
+          {matterLoading ? (
+            <p className="mt-4 text-sm text-slate-600">Loading matter details...</p>
+          ) : (
+            <p className="mt-4 text-sm text-slate-700 whitespace-pre-wrap">
+              {matter?.description || "No description provided yet."}
+            </p>
+          )}
+        </div>
 
-              <div className="mt-4 space-y-3">
+        <div className="rounded-2xl bg-white border shadow-xl p-6">
+          <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Open documents in a modal or download them directly.
+          </p>
+
+          <div className="mt-4 space-y-3">
                 <input
                   id="client-workspace-upload-input"
                   type="file"
@@ -357,11 +456,14 @@ export default function ClientMatterDetailPage({ params }) {
                 </button>
 
                 {documentsError && <p className="text-sm text-red-600">{documentsError}</p>}
-              </div>
+          </div>
 
-              <ul className="mt-4 space-y-2 rounded-xl border bg-slate-50 p-2 max-h-[420px] overflow-y-auto">
-                {docs.length ? (
-                  docs.map((d) => (
+          {documentsLoading ? (
+            <p className="mt-4 text-sm text-slate-600">Loading documents...</p>
+          ) : (
+            <ul className="mt-4 space-y-2 rounded-xl border bg-slate-50 p-2 max-h-[420px] overflow-y-auto">
+              {docs.length ? (
+                docs.map((d) => (
                     <li key={d.id} className="rounded-lg border bg-white p-3">
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div className="min-w-0">
@@ -376,6 +478,11 @@ export default function ClientMatterDetailPage({ params }) {
                           <button
                             type="button"
                             className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                            onMouseEnter={() => {
+                              if (isPreviewableFile(d.filename)) {
+                                void ensureDocumentLinks(d);
+                              }
+                            }}
                             onClick={() => handleOpenDocument(d)}
                           >
                             Open
@@ -390,15 +497,16 @@ export default function ClientMatterDetailPage({ params }) {
                         </div>
                       </div>
                     </li>
-                  ))
-                ) : (
-                  <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
-                    No documents yet.
-                  </li>
-                )}
-              </ul>
-            </div>
-          </div>
+                ))
+              ) : (
+                <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
+                  No documents yet.
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
+      </div>
 
           <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
             <h2 className="text-lg font-semibold text-slate-900">Shared Updates</h2>
@@ -538,8 +646,6 @@ export default function ClientMatterDetailPage({ params }) {
           )}
 
           {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
-        </>
-      )}
     </div>
   );
 }
