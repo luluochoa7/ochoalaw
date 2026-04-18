@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import FastAPI, Form, Depends, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_
@@ -16,6 +16,7 @@ from models import (
     ClientInvitation,
     ContactSubmission,
     Document,
+    DocumentAccessToken,
     Matter,
     MatterEvent,
     MatterNote,
@@ -297,6 +298,44 @@ def serialize_event(event: MatterEvent):
         "message": event.message,
         "created_at": event.created_at.isoformat() if event.created_at else None,
     }
+
+
+def _safe_content_disposition(disposition: str, filename: str) -> str:
+    safe_filename = (filename or "document").replace("\\", "_").replace('"', "")
+    return f'{disposition}; filename="{safe_filename}"'
+
+
+def get_authorized_document_for_user(document_id: int, user: User, db: Session):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    matter = db.query(Matter).filter(Matter.id == doc.matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+
+    assert_can_access_matter(user, matter)
+    return doc, matter
+
+
+def get_valid_document_access_token(token: str, db: Session):
+    access = (
+        db.query(DocumentAccessToken)
+        .options(joinedload(DocumentAccessToken.document))
+        .filter(DocumentAccessToken.token == token)
+        .first()
+    )
+    if not access:
+        raise HTTPException(status_code=404, detail="Document access token not found")
+
+    expires_at = access.expires_at
+    now = datetime.now(timezone.utc)
+    if expires_at is not None and expires_at.tzinfo is None:
+        now = now.replace(tzinfo=None)
+    if expires_at is not None and expires_at < now:
+        raise HTTPException(status_code=400, detail="Document access token expired")
+
+    return access
 
 @app.get("/profile")
 def profile(user: User = Depends(get_current_user)):
@@ -927,6 +966,105 @@ def list_documents(
         }
         for d in docs
     ]
+
+
+@app.post("/documents/{document_id}/access-links")
+def create_document_access_links(
+    document_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
+
+    doc, _matter = get_authorized_document_for_user(document_id, user, db)
+
+    token = token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    access = DocumentAccessToken(
+        document_id=doc.id,
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at,
+    )
+    db.add(access)
+    db.commit()
+
+    api_base = os.getenv("API_BASE_URL", "").strip().rstrip("/")
+    if not api_base:
+        api_base = str(request.base_url).rstrip("/")
+
+    return {
+        "content_url": f"{api_base}/documents/access/{token}/content",
+        "download_url": f"{api_base}/documents/access/{token}/download",
+        "expires_at": expires_at.isoformat(),
+        "filename": doc.filename,
+    }
+
+
+@app.get("/documents/access/{token}/content")
+def serve_document_content(token: str, db: Session = Depends(get_db)):
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
+
+    access = get_valid_document_access_token(token, db)
+
+    doc = access.document
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        s3_response = s3_client.get_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=doc.s3_key,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not fetch document: {str(e)}")
+
+    content_type = s3_response.get("ContentType") or "application/octet-stream"
+
+    return StreamingResponse(
+        s3_response["Body"],
+        media_type=content_type,
+        headers={
+            "Content-Disposition": _safe_content_disposition("inline", doc.filename),
+            "Cache-Control": "private, max-age=300",
+        },
+    )
+
+
+@app.get("/documents/access/{token}/download")
+def serve_document_download(token: str, db: Session = Depends(get_db)):
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
+
+    access = get_valid_document_access_token(token, db)
+
+    doc = access.document
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        s3_response = s3_client.get_object(
+            Bucket=S3_BUCKET_NAME,
+            Key=doc.s3_key,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Could not fetch document: {str(e)}")
+
+    content_type = s3_response.get("ContentType") or "application/octet-stream"
+
+    return StreamingResponse(
+        s3_response["Body"],
+        media_type=content_type,
+        headers={
+            "Content-Disposition": _safe_content_disposition("attachment", doc.filename),
+            "Cache-Control": "private, max-age=300",
+        },
+    )
+
 
 @app.get("/documents/{document_id}/download")
 def download_document(

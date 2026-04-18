@@ -7,7 +7,7 @@ import {
   fetchMe,
   fetchMatter,
   fetchMatterDocuments,
-  openDocument,
+  getDocumentAccessLinks,
   updateMatter,
   fetchInternalNotes,
   createInternalNote,
@@ -23,6 +23,31 @@ function formatDateTime(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function getFileExtension(filename) {
+  if (!filename) return "";
+  const parts = filename.toLowerCase().split(".");
+  return parts.length > 1 ? parts.pop() : "";
+}
+
+function isPreviewablePdf(filename) {
+  return getFileExtension(filename) === "pdf";
+}
+
+function isPreviewableImage(filename) {
+  return ["jpg", "jpeg", "png", "webp"].includes(getFileExtension(filename));
+}
+
+function isPreviewableFile(filename) {
+  return isPreviewablePdf(filename) || isPreviewableImage(filename);
+}
+
+function linksAreExpired(links) {
+  if (!links?.expires_at) return true;
+  const exp = new Date(links.expires_at);
+  if (Number.isNaN(exp.getTime())) return true;
+  return exp.getTime() - Date.now() < 30 * 1000;
 }
 
 export default function LawyerMatterDetailPage({ params }) {
@@ -51,6 +76,28 @@ export default function LawyerMatterDetailPage({ params }) {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentLinks, setDocumentLinks] = useState({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+
+  async function ensureDocumentLinks(doc, forceRefresh = false) {
+    if (!doc?.id) throw new Error("Invalid document");
+
+    const existing = documentLinks[doc.id];
+    if (!forceRefresh && existing && !linksAreExpired(existing)) {
+      return existing;
+    }
+
+    const links = await getDocumentAccessLinks(doc.id);
+    setDocumentLinks((prev) => ({ ...prev, [doc.id]: links }));
+    return links;
+  }
+
+  async function openDocumentUrl(url) {
+    if (typeof window === "undefined" || !url) return;
+    window.location.assign(url);
+  }
 
   async function refreshEvents() {
     try {
@@ -139,6 +186,19 @@ export default function LawyerMatterDetailPage({ params }) {
     };
   }, [matterId, router]);
 
+  useEffect(() => {
+    if (!selectedDocument?.id) return;
+    const next = docs.find((doc) => doc.id === selectedDocument.id) || null;
+    if (!next) {
+      setSelectedDocument(null);
+      setPreviewError("");
+      return;
+    }
+    if (next.filename !== selectedDocument.filename) {
+      setSelectedDocument(next);
+    }
+  }, [docs, selectedDocument]);
+
   async function handleStatusChange(nextStatus) {
     if (!matter) return;
     setActionError("");
@@ -173,12 +233,38 @@ export default function LawyerMatterDetailPage({ params }) {
     }
   }
 
-  async function handleOpenDocument(documentId) {
+  async function handlePreviewDocument(doc) {
+    setActionError("");
+    setPreviewError("");
+    setSelectedDocument(doc);
+    setPreviewLoading(true);
+    try {
+      await ensureDocumentLinks(doc);
+    } catch (e) {
+      setPreviewError(e?.message || "Could not load preview.");
+      setActionError(e?.message || "Could not load preview.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function handleOpenDocument(doc) {
     setActionError("");
     try {
-      await openDocument(documentId);
+      const links = await ensureDocumentLinks(doc);
+      await openDocumentUrl(links?.content_url);
     } catch (e) {
       setActionError(e?.message || "Could not open document.");
+    }
+  }
+
+  async function handleDownloadDocument(doc) {
+    setActionError("");
+    try {
+      const links = await ensureDocumentLinks(doc);
+      await openDocumentUrl(links?.download_url);
+    } catch (e) {
+      setActionError(e?.message || "Could not download document.");
     }
   }
 
@@ -301,31 +387,90 @@ export default function LawyerMatterDetailPage({ params }) {
 
             <div className="rounded-2xl bg-white border shadow-xl p-6">
               <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-              <ul className="mt-3 divide-y rounded-xl border max-h-[420px] overflow-y-auto">
+              <ul className="mt-3 space-y-2 rounded-xl border bg-slate-50 p-2 max-h-[420px] overflow-y-auto">
                 {docs.length ? (
                   docs.map((d) => (
-                    <li key={d.id} className="p-3 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">
-                          {d.filename}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          Uploaded {formatDateTime(d.created_at)}
-                        </p>
+                    <li key={d.id} className="rounded-lg border bg-white p-3">
+                      <div className="flex items-start justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 break-words">
+                            {d.filename}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Uploaded {formatDateTime(d.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          {isPreviewableFile(d.filename) && (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                              onClick={() => handlePreviewDocument(d)}
+                            >
+                              Preview
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                            onClick={() => handleOpenDocument(d)}
+                          >
+                            Open
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                            onClick={() => handleDownloadDocument(d)}
+                          >
+                            Download
+                          </button>
+                        </div>
                       </div>
-                      <button
-                        type="button"
-                        className="rounded-lg bg-slate-900 px-3 py-2 text-xs text-white hover:bg-black"
-                        onClick={() => handleOpenDocument(d.id)}
-                      >
-                        Open
-                      </button>
                     </li>
                   ))
                 ) : (
-                  <li className="p-3 text-sm text-slate-600">No documents yet.</li>
+                  <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
+                    No documents yet.
+                  </li>
                 )}
               </ul>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
+            <h2 className="text-lg font-semibold text-slate-900">Document Preview</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Preview PDFs and images directly in the workspace.
+            </p>
+
+            <div className="mt-4">
+              {!selectedDocument ? (
+                <p className="text-sm text-slate-500">Select a document to preview it here.</p>
+              ) : previewLoading ? (
+                <p className="text-sm text-slate-600">Loading preview...</p>
+              ) : previewError ? (
+                <p className="text-sm text-red-600">{previewError}</p>
+              ) : documentLinks[selectedDocument.id]?.content_url ? (
+                isPreviewablePdf(selectedDocument.filename) ? (
+                  <iframe
+                    src={documentLinks[selectedDocument.id].content_url}
+                    title={selectedDocument.filename}
+                    className="mt-3 h-[450px] sm:h-[600px] w-full rounded-xl border bg-white"
+                  />
+                ) : isPreviewableImage(selectedDocument.filename) ? (
+                  <img
+                    src={documentLinks[selectedDocument.id].content_url}
+                    alt={selectedDocument.filename}
+                    className="mt-3 max-h-[700px] w-full rounded-xl border object-contain bg-slate-50"
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Preview is not available for this file type.
+                  </p>
+                )
+              ) : (
+                <p className="text-sm text-slate-500">Preview is not available.</p>
+              )}
             </div>
           </div>
 

@@ -412,15 +412,16 @@ export async function fetchMatterEvents(matterId) {
   return res.json();
 }
 
-export async function getDocumentDownloadUrl(documentId) {
-  const res = await authFetch(`/documents/${documentId}/download`);
+export async function getDocumentAccessLinks(documentId) {
+  const res = await authFetch(`/documents/${documentId}/access-links`, {
+    method: "POST",
+  });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    console.error("getDocumentDownloadUrl failed:", res.status, txt);
-    throw new Error("Failed to get download link.");
+    console.error("getDocumentAccessLinks failed:", res.status, txt);
+    throw new Error("Failed to get document access links.");
   }
-  const data = await res.json();
-  return data.download_url;
+  return res.json();
 }
 
 // CONVENIENCE HELPERS which UI uses
@@ -464,20 +465,6 @@ export async function uploadMatterFile(matterId, file) {
 
   // create DB record
   return completeMatterUpload(matterId, fileName, object_key);
-}
-
-/**
- * Convenience helper:
- * Gets a presigned GET link and opens the document in a new tab.
- */
-export async function openDocument(documentId) {
-  const url = await getDocumentDownloadUrl(documentId);
-
-  if (typeof window !== "undefined") {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  return url;
 }
 
 export async function fetchMatterDetail(matterId) {

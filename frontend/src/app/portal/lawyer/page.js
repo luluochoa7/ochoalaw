@@ -11,7 +11,7 @@ import {
   searchClients,
   uploadMatterFile,
   fetchMatterDocuments,
-  getDocumentDownloadUrl,
+  getDocumentAccessLinks,
 } from "../../lib/auth";
 
 function Stat({ label, value, sub }) {
@@ -46,6 +46,31 @@ function fmtDateShort(iso) {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function getFileExtension(filename) {
+  if (!filename) return "";
+  const parts = filename.toLowerCase().split(".");
+  return parts.length > 1 ? parts.pop() : "";
+}
+
+function isPreviewablePdf(filename) {
+  return getFileExtension(filename) === "pdf";
+}
+
+function isPreviewableImage(filename) {
+  return ["jpg", "jpeg", "png", "webp"].includes(getFileExtension(filename));
+}
+
+function isPreviewableFile(filename) {
+  return isPreviewablePdf(filename) || isPreviewableImage(filename);
+}
+
+function linksAreExpired(links) {
+  if (!links?.expires_at) return true;
+  const exp = new Date(links.expires_at);
+  if (Number.isNaN(exp.getTime())) return true;
+  return exp.getTime() - Date.now() < 30 * 1000;
+}
+
 function DocumentsPanel({ matters, loadingMatters }) {
   const [selectedMatterId, setSelectedMatterId] = useState("");
   const [docs, setDocs] = useState([]);
@@ -53,6 +78,10 @@ function DocumentsPanel({ matters, loadingMatters }) {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentLinks, setDocumentLinks] = useState({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
 
   // File Size Limits
   const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB File Size Max
@@ -75,6 +104,24 @@ function DocumentsPanel({ matters, loadingMatters }) {
       hour: "numeric",
       minute: "2-digit",
     });
+  }
+
+  async function ensureDocumentLinks(doc, forceRefresh = false) {
+    if (!doc?.id) throw new Error("Invalid document");
+
+    const existing = documentLinks[doc.id];
+    if (!forceRefresh && existing && !linksAreExpired(existing)) {
+      return existing;
+    }
+
+    const links = await getDocumentAccessLinks(doc.id);
+    setDocumentLinks((prev) => ({ ...prev, [doc.id]: links }));
+    return links;
+  }
+
+  function openDocumentUrl(url) {
+    if (typeof window === "undefined" || !url) return;
+    window.location.assign(url);
   }
 
   useEffect(() => {
@@ -106,6 +153,19 @@ function DocumentsPanel({ matters, loadingMatters }) {
     };
   }, [selectedMatterId]);
 
+  useEffect(() => {
+    if (!selectedDocument?.id) return;
+    const next = docs.find((doc) => doc.id === selectedDocument.id) || null;
+    if (!next) {
+      setSelectedDocument(null);
+      setPreviewError("");
+      return;
+    }
+    if (next.filename !== selectedDocument.filename) {
+      setSelectedDocument(next);
+    }
+  }, [docs, selectedDocument]);
+
   async function handleUpload() {
     if (!selectedMatterId) return setErr("Pick a matter first.");
     if (!file) return setErr("Choose a file first.");
@@ -135,11 +195,38 @@ function DocumentsPanel({ matters, loadingMatters }) {
     }
   }
 
-  async function handleDownload(docId) {
+  async function handlePreview(doc) {
+    setErr("");
+    setPreviewError("");
+    setSelectedDocument(doc);
+    setPreviewLoading(true);
+    try {
+      await ensureDocumentLinks(doc);
+    } catch (e) {
+      console.error(e);
+      setPreviewError(e?.message || "Could not load preview.");
+      setErr(e?.message || "Could not load preview.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  async function handleOpen(doc) {
     setErr("");
     try {
-      const url = await getDocumentDownloadUrl(docId);
-      window.open(url, "_blank", "noopener,noreferrer");
+      const links = await ensureDocumentLinks(doc);
+      openDocumentUrl(links?.content_url);
+    } catch (e) {
+      console.error(e);
+      setErr(e?.message || "Could not open document.");
+    }
+  }
+
+  async function handleDownload(doc) {
+    setErr("");
+    try {
+      const links = await ensureDocumentLinks(doc);
+      openDocumentUrl(links?.download_url);
     } catch (e) {
       console.error(e);
       setErr(e?.message || "Could not download document.");
@@ -171,7 +258,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
       </div>
 
       <p className="mt-2 text-sm text-slate-600">
-        Upload files into the selected matter and open them instantly.
+        Upload files into the selected matter and preview, open, or download them.
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -228,35 +315,109 @@ function DocumentsPanel({ matters, loadingMatters }) {
       <div className="mt-5">
         <p className="text-sm font-medium text-slate-900">Uploaded files</p>
 
-        <ul className="mt-2 max-h-[280px] overflow-y-auto divide-y rounded-xl border bg-white">
+        <ul className="mt-2 max-h-[320px] overflow-y-auto space-y-2 rounded-xl border bg-slate-50 p-2">
           {docsLoading ? (
-            <li className="p-3 text-sm text-slate-600">Loading documents…</li>
+            <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
+              Loading documents...
+            </li>
           ) : docs?.length ? (
             docs.map((d) => (
-              <li key={d.id} className="p-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900 truncate">
-                    {d.filename}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Uploaded {d.created_at ? fmtDateTime(d.created_at) : "—"}
-                  </p>
-                </div>
+              <li key={d.id} className="rounded-lg border bg-white p-3">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 break-words">
+                      {d.filename}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Uploaded {d.created_at ? fmtDateTime(d.created_at) : "—"}
+                    </p>
+                  </div>
 
-                <button
-                  type="button"
-                  onClick={() => handleDownload(d.id)}
-                  className="shrink-0 rounded-lg border px-3 py-2 text-xs font-medium text-slate-900 hover:bg-slate-50"
-                >
-                  Open
-                </button>
+                  <div className="flex gap-2 flex-wrap">
+                    {isPreviewableFile(d.filename) && (
+                      <button
+                        type="button"
+                        onClick={() => handlePreview(d)}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        Preview
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleOpen(d)}
+                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                    >
+                      Open
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(d)}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                    >
+                      Download
+                    </button>
+                  </div>
+                </div>
               </li>
             ))
           ) : (
-            <li className="p-3 text-sm text-slate-600">No documents yet.</li>
+            <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
+              No documents yet.
+            </li>
           )}
         </ul>
       </div>
+
+      {selectedDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-5xl rounded-2xl bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold text-slate-900 break-words">
+                {selectedDocument.filename}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDocument(null);
+                  setPreviewError("");
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4">
+              {previewLoading ? (
+                <p className="text-sm text-slate-600">Loading preview...</p>
+              ) : previewError ? (
+                <p className="text-sm text-red-600">{previewError}</p>
+              ) : documentLinks[selectedDocument.id]?.content_url ? (
+                isPreviewablePdf(selectedDocument.filename) ? (
+                  <iframe
+                    src={documentLinks[selectedDocument.id].content_url}
+                    title={selectedDocument.filename}
+                    className="h-[500px] w-full rounded-xl border bg-white"
+                  />
+                ) : isPreviewableImage(selectedDocument.filename) ? (
+                  <img
+                    src={documentLinks[selectedDocument.id].content_url}
+                    alt={selectedDocument.filename}
+                    className="max-h-[700px] w-full rounded-xl border object-contain bg-slate-50"
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    Preview is not available for this file type.
+                  </p>
+                )
+              ) : (
+                <p className="text-sm text-slate-500">Preview is not available.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
