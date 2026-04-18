@@ -71,6 +71,13 @@ function linksAreExpired(links) {
   return exp.getTime() - Date.now() < 30 * 1000;
 }
 
+function getErrorMessage(error, fallback) {
+  if (!error) return fallback;
+  if (typeof error === "string") return error;
+  if (typeof error?.message === "string" && error.message.trim()) return error.message;
+  return fallback;
+}
+
 function DocumentsPanel({ matters, loadingMatters }) {
   const [selectedMatterId, setSelectedMatterId] = useState("");
   const [docs, setDocs] = useState([]);
@@ -124,8 +131,20 @@ function DocumentsPanel({ matters, loadingMatters }) {
     window.location.assign(url);
   }
 
+  async function fetchDocumentsForMatter(matterId) {
+    const list = await fetchMatterDocuments(matterId);
+    return Array.isArray(list) ? list : [];
+  }
+
   useEffect(() => {
-    if (!selectedMatterId && matters?.length) {
+    if (!matters?.length) {
+      setSelectedMatterId("");
+      setDocs([]);
+      return;
+    }
+
+    const stillExists = matters.some((m) => String(m.id) === selectedMatterId);
+    if (!selectedMatterId || !stillExists) {
       setSelectedMatterId(String(matters[0].id));
     }
   }, [matters, selectedMatterId]);
@@ -134,14 +153,17 @@ function DocumentsPanel({ matters, loadingMatters }) {
     let cancelled = false;
 
     async function loadDocs() {
-      if (!selectedMatterId) return;
+      if (!selectedMatterId) {
+        if (!cancelled) setDocs([]);
+        return;
+      }
       setErr("");
       setDocsLoading(true);
       try {
-        const list = await fetchMatterDocuments(selectedMatterId);
-        if (!cancelled) setDocs(Array.isArray(list) ? list : []);
+        const nextDocs = await fetchDocumentsForMatter(selectedMatterId);
+        if (!cancelled) setDocs(nextDocs);
       } catch (e) {
-        if (!cancelled) setErr(e?.message || "Could not load documents.");
+        if (!cancelled) setErr(getErrorMessage(e, "Could not load documents."));
       } finally {
         if (!cancelled) setDocsLoading(false);
       }
@@ -176,22 +198,24 @@ function DocumentsPanel({ matters, loadingMatters }) {
 
     setBusy(true);
     setErr("");
+    setDocsLoading(true);
 
     try {
       // SINGLE CALL (frontend): handles presign -> PUT -> complete
       await uploadMatterFile(Number(selectedMatterId), file);
 
-      const list = await fetchMatterDocuments(selectedMatterId);
-      setDocs(Array.isArray(list) ? list : []);
+      const nextDocs = await fetchDocumentsForMatter(selectedMatterId);
+      setDocs(nextDocs);
       setFile(null);
 
       const el = document.getElementById("lawyer-doc-upload-input");
       if (el) el.value = "";
     } catch (e) {
       console.error(e);
-      setErr(e?.message || "Upload failed.");
+      setErr(getErrorMessage(e, "Upload failed."));
     } finally {
       setBusy(false);
+      setDocsLoading(false);
     }
   }
 
@@ -209,8 +233,9 @@ function DocumentsPanel({ matters, loadingMatters }) {
       await ensureDocumentLinks(doc);
     } catch (e) {
       console.error(e);
-      setPreviewError(e?.message || "Could not load document.");
-      setErr(e?.message || "Could not load document.");
+      const message = getErrorMessage(e, "Could not load document.");
+      setPreviewError(message);
+      setErr(message);
     } finally {
       setPreviewLoading(false);
     }
@@ -223,7 +248,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
       openDocumentUrl(links?.download_url);
     } catch (e) {
       console.error(e);
-      setErr(e?.message || "Could not download document.");
+      setErr(getErrorMessage(e, "Could not download document."));
     }
   }
 
@@ -330,6 +355,11 @@ function DocumentsPanel({ matters, loadingMatters }) {
                   <div className="flex gap-2 flex-wrap">
                     <button
                       type="button"
+                      onMouseEnter={() => {
+                        if (isPreviewableFile(d.filename)) {
+                          void ensureDocumentLinks(d);
+                        }
+                      }}
                       onClick={() => handleOpen(d)}
                       className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
                     >
@@ -414,9 +444,10 @@ function DocumentsPanel({ matters, loadingMatters }) {
 export default function LawyerDashboardPage() {
   const router = useRouter();
   const [checkingRole, setCheckingRole] = useState(true);
+  const [pageError, setPageError] = useState(null);
 
   const [matters, setMatters] = useState([]);
-  const [mattersLoading, setMattersLoading] = useState(false);
+  const [mattersLoading, setMattersLoading] = useState(true);
   const [mattersError, setMattersError] = useState(null);
 
   // create matter modal + fields
@@ -471,21 +502,42 @@ export default function LawyerDashboardPage() {
     let cancelled = false;
 
     async function gateAndLoad() {
+      if (!cancelled) {
+        setPageError(null);
+        setMattersError(null);
+        setMattersLoading(true);
+      }
+
       try {
-        const me = await fetchMe();
-        if (!me || me.role !== "lawyer") {
+        const [meResult, mattersResult] = await Promise.allSettled([
+          fetchMe(),
+          fetchMyMatters(),
+        ]);
+
+        if (cancelled) return;
+
+        if (
+          meResult.status !== "fulfilled" ||
+          !meResult.value ||
+          meResult.value.role !== "lawyer"
+        ) {
           router.push("/portal");
           return;
         }
 
-        setMattersLoading(true);
-        setMattersError(null);
-
-        const data = await fetchMyMatters();
-        if (!cancelled) setMatters(Array.isArray(data) ? data : []);
+        if (mattersResult.status === "fulfilled") {
+          setMatters(Array.isArray(mattersResult.value) ? mattersResult.value : []);
+          setMattersError(null);
+        } else {
+          setMatters([]);
+          setMattersError(
+            getErrorMessage(mattersResult.reason, "Could not load matters.")
+          );
+        }
       } catch (e) {
-        router.push("/portal");
-        return;
+        if (!cancelled) {
+          setPageError(getErrorMessage(e, "Could not load your dashboard."));
+        }
       } finally {
         if (!cancelled) {
           setMattersLoading(false);
@@ -621,6 +673,12 @@ export default function LawyerDashboardPage() {
       {/* Content */}
       <section className="-mt-8 pb-16">
         <div className="container mx-auto px-4 space-y-6">
+          {pageError && (
+            <div className="rounded-xl border bg-white p-4 text-sm text-red-600">
+              {pageError}
+            </div>
+          )}
+
           {/* Stats (now real) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Stat

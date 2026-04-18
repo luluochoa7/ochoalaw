@@ -58,6 +58,13 @@ function linksAreExpired(links) {
   return exp.getTime() - Date.now() < 30 * 1000;
 }
 
+function getErrorMessage(error, fallback) {
+  if (!error) return fallback;
+  if (typeof error === "string") return error;
+  if (typeof error?.message === "string" && error.message.trim()) return error.message;
+  return fallback;
+}
+
 function DocumentsPanel({ matters, loadingMatters }) {
   const [selectedMatterId, setSelectedMatterId] = useState("");
   const [docs, setDocs] = useState([]);
@@ -111,9 +118,21 @@ function DocumentsPanel({ matters, loadingMatters }) {
     window.location.assign(url);
   }
 
+  async function fetchDocumentsForMatter(matterId) {
+    const list = await fetchMatterDocuments(matterId);
+    return Array.isArray(list) ? list : [];
+  }
+
   // default selected matter when matters load
   useEffect(() => {
-    if (!selectedMatterId && matters?.length) {
+    if (!matters?.length) {
+      setSelectedMatterId("");
+      setDocs([]);
+      return;
+    }
+
+    const stillExists = matters.some((m) => String(m.id) === selectedMatterId);
+    if (!selectedMatterId || !stillExists) {
       setSelectedMatterId(String(matters[0].id));
     }
   }, [matters, selectedMatterId]);
@@ -123,14 +142,17 @@ function DocumentsPanel({ matters, loadingMatters }) {
     let cancelled = false;
 
     async function loadDocs() {
-      if (!selectedMatterId) return;
+      if (!selectedMatterId) {
+        if (!cancelled) setDocs([]);
+        return;
+      }
       setErr("");
       setDocsLoading(true);
       try {
-        const list = await fetchMatterDocuments(selectedMatterId);
-        if (!cancelled) setDocs(Array.isArray(list) ? list : []);
+        const nextDocs = await fetchDocumentsForMatter(selectedMatterId);
+        if (!cancelled) setDocs(nextDocs);
       } catch (e) {
-        if (!cancelled) setErr(e?.message || "Could not load documents.");
+        if (!cancelled) setErr(getErrorMessage(e, "Could not load documents."));
       } finally {
         if (!cancelled) setDocsLoading(false);
       }
@@ -165,14 +187,15 @@ function DocumentsPanel({ matters, loadingMatters }) {
 
     setBusy(true);
     setErr("");
+    setDocsLoading(true);
 
     try {
       // SINGLE CALL (frontend): handles presign -> PUT -> complete
       await uploadMatterFile(Number(selectedMatterId), file);
 
       // refresh list
-      const list = await fetchMatterDocuments(selectedMatterId);
-      setDocs(Array.isArray(list) ? list : []);
+      const nextDocs = await fetchDocumentsForMatter(selectedMatterId);
+      setDocs(nextDocs);
       setFile(null);
 
       // reset the input UI (optional quality of life)
@@ -180,9 +203,10 @@ function DocumentsPanel({ matters, loadingMatters }) {
       if (el) el.value = "";
     } catch (e) {
       console.error(e);
-      setErr(e?.message || "Upload failed.");
+      setErr(getErrorMessage(e, "Upload failed."));
     } finally {
       setBusy(false);
+      setDocsLoading(false);
     }
   }
 
@@ -200,8 +224,9 @@ function DocumentsPanel({ matters, loadingMatters }) {
       await ensureDocumentLinks(doc);
     } catch (e) {
       console.error(e);
-      setPreviewError(e?.message || "Could not load document.");
-      setErr(e?.message || "Could not load document.");
+      const message = getErrorMessage(e, "Could not load document.");
+      setPreviewError(message);
+      setErr(message);
     } finally {
       setPreviewLoading(false);
     }
@@ -214,7 +239,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
       openDocumentUrl(links?.download_url);
     } catch (e) {
       console.error(e);
-      setErr(e?.message || "Could not download document.");
+      setErr(getErrorMessage(e, "Could not download document."));
     }
   }
 
@@ -322,6 +347,11 @@ function DocumentsPanel({ matters, loadingMatters }) {
                   <div className="flex gap-2 flex-wrap">
                     <button
                       type="button"
+                      onMouseEnter={() => {
+                        if (isPreviewableFile(d.filename)) {
+                          void ensureDocumentLinks(d);
+                        }
+                      }}
                       onClick={() => handleOpen(d)}
                       className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
                     >
@@ -406,27 +436,67 @@ function DocumentsPanel({ matters, loadingMatters }) {
 export default function ClientDashboardPage() {
   const router = useRouter();
   const [matters, setMatters] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [mattersLoading, setMattersLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pageError, setPageError] = useState(null);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
+      if (!cancelled) {
+        setPageError(null);
+        setError(null);
+        setMattersLoading(true);
+      }
+
       try {
-        const me = await fetchMe();
-        if (me.role !== "client") {
+        const [meResult, mattersResult] = await Promise.allSettled([
+          fetchMe(),
+          fetchMyMatters(),
+        ]);
+
+        if (cancelled) return;
+
+        if (
+          meResult.status !== "fulfilled" ||
+          !meResult.value ||
+          meResult.value.role !== "client"
+        ) {
           router.push("/portal");
           return;
         }
-        const data = await fetchMyMatters();
-        setMatters(data || []);
+
+        if (mattersResult.status === "fulfilled") {
+          setMatters(Array.isArray(mattersResult.value) ? mattersResult.value : []);
+          setError(null);
+        } else {
+          setMatters([]);
+          setError(getErrorMessage(mattersResult.reason, "Could not load your matters."));
+        }
       } catch (e) {
-        setError("Could not load your matters.");
+        if (!cancelled) {
+          setPageError(getErrorMessage(e, "Could not load your dashboard."));
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setMattersLoading(false);
+          setAuthLoading(false);
+        }
       }
     }
+
     load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
+
+  if (authLoading) {
+    return <div className="mt-24 text-center">Loading your dashboard...</div>;
+  }
 
   return (
     <>
@@ -445,6 +515,12 @@ export default function ClientDashboardPage() {
       {/* Content */}
       <section className="-mt-8 pb-16">
         <div className="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {pageError && (
+            <div className="lg:col-span-3 rounded-xl border bg-white p-4 text-sm text-red-600">
+              {pageError}
+            </div>
+          )}
+
           {/* Main column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Matters */}
@@ -456,7 +532,7 @@ export default function ClientDashboardPage() {
               </div>
 
               <div className="mt-4">
-                {loading ? (
+                {mattersLoading ? (
                   <p className="text-sm text-slate-600">Loading…</p>
                 ) : error ? (
                   <p className="text-sm text-red-600">{error}</p>
@@ -520,7 +596,7 @@ export default function ClientDashboardPage() {
           {/* Side column */}
           <div className="space-y-6">
             {/* Documents (NOW FUNCTIONAL) */}
-            <DocumentsPanel matters={matters} loadingMatters={loading} />
+            <DocumentsPanel matters={matters} loadingMatters={mattersLoading} />
           </div>
         </div>
       </section>
