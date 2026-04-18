@@ -1066,45 +1066,6 @@ def serve_document_download(token: str, db: Session = Depends(get_db)):
     )
 
 
-@app.get("/documents/{document_id}/download")
-def download_document(
-    document_id: int,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    if not S3_BUCKET_NAME:
-        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
-
-    # 1) Fetch document
-    doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    # 2) Fetch matter + authorization check
-    matter = db.query(Matter).filter(Matter.id == doc.matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
-
-    # 3) Presign GET
-    try:
-        download_url = s3_client.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": S3_BUCKET_NAME,
-                "Key": doc.s3_key,
-                # optional: force download (instead of open in browser)
-                # "ResponseContentDisposition": f'attachment; filename="{doc.filename}"'
-            },
-            ExpiresIn=PRESIGNED_EXPIRATION,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not presign download: {str(e)}")
-
-    return {"download_url": download_url}
-
-
 @app.get("/matters/{matter_id}", response_model=MatterOut)
 def get_matter(
     matter_id: int,

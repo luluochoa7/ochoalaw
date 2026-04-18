@@ -195,30 +195,24 @@ function DocumentsPanel({ matters, loadingMatters }) {
     }
   }
 
-  async function handlePreview(doc) {
+  async function handleOpen(doc) {
     setErr("");
     setPreviewError("");
+    setPreviewLoading(false);
     setSelectedDocument(doc);
+    if (!isPreviewableFile(doc?.filename)) {
+      return;
+    }
+
     setPreviewLoading(true);
     try {
       await ensureDocumentLinks(doc);
     } catch (e) {
       console.error(e);
-      setPreviewError(e?.message || "Could not load preview.");
-      setErr(e?.message || "Could not load preview.");
+      setPreviewError(e?.message || "Could not load document.");
+      setErr(e?.message || "Could not load document.");
     } finally {
       setPreviewLoading(false);
-    }
-  }
-
-  async function handleOpen(doc) {
-    setErr("");
-    try {
-      const links = await ensureDocumentLinks(doc);
-      openDocumentUrl(links?.content_url);
-    } catch (e) {
-      console.error(e);
-      setErr(e?.message || "Could not open document.");
     }
   }
 
@@ -258,7 +252,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
       </div>
 
       <p className="mt-2 text-sm text-slate-600">
-        Upload files into the selected matter and preview, open, or download them.
+        Upload files into the selected matter and open or download them.
       </p>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -334,15 +328,6 @@ function DocumentsPanel({ matters, loadingMatters }) {
                   </div>
 
                   <div className="flex gap-2 flex-wrap">
-                    {isPreviewableFile(d.filename) && (
-                      <button
-                        type="button"
-                        onClick={() => handlePreview(d)}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                      >
-                        Preview
-                      </button>
-                    )}
                     <button
                       type="button"
                       onClick={() => handleOpen(d)}
@@ -390,9 +375,13 @@ function DocumentsPanel({ matters, loadingMatters }) {
 
             <div className="mt-4">
               {previewLoading ? (
-                <p className="text-sm text-slate-600">Loading preview...</p>
+                <p className="text-sm text-slate-600">Loading document...</p>
               ) : previewError ? (
                 <p className="text-sm text-red-600">{previewError}</p>
+              ) : !isPreviewableFile(selectedDocument.filename) ? (
+                <p className="text-sm text-slate-500">
+                  This file type cannot be opened in the in-app viewer. Use Download instead.
+                </p>
               ) : documentLinks[selectedDocument.id]?.content_url ? (
                 isPreviewablePdf(selectedDocument.filename) ? (
                   <iframe
@@ -408,11 +397,11 @@ function DocumentsPanel({ matters, loadingMatters }) {
                   />
                 ) : (
                   <p className="text-sm text-slate-500">
-                    Preview is not available for this file type.
+                    Open is not available for this file type.
                   </p>
                 )
               ) : (
-                <p className="text-sm text-slate-500">Preview is not available.</p>
+                <p className="text-sm text-slate-500">Open is not available for this file.</p>
               )}
             </div>
           </div>

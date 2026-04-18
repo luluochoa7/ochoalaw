@@ -7,11 +7,21 @@ import {
   fetchMe,
   fetchMatter,
   fetchMatterDocuments,
+  uploadMatterFile,
   getDocumentAccessLinks,
   fetchSharedUpdates,
   createSharedUpdate,
   fetchMatterEvents,
 } from "../../../../lib/auth";
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+];
 
 function formatDateTime(iso) {
   if (!iso) return "—";
@@ -66,6 +76,9 @@ export default function ClientMatterDetailPage({ params }) {
   const [documentLinks, setDocumentLinks] = useState({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [documentsError, setDocumentsError] = useState("");
 
   async function ensureDocumentLinks(doc, forceRefresh = false) {
     if (!doc?.id) throw new Error("Invalid document");
@@ -78,11 +91,6 @@ export default function ClientMatterDetailPage({ params }) {
     const links = await getDocumentAccessLinks(doc.id);
     setDocumentLinks((prev) => ({ ...prev, [doc.id]: links }));
     return links;
-  }
-
-  async function openDocumentUrl(url) {
-    if (typeof window === "undefined" || !url) return;
-    window.location.assign(url);
   }
 
   async function refreshEvents() {
@@ -171,38 +179,70 @@ export default function ClientMatterDetailPage({ params }) {
     }
   }, [docs, selectedDocument]);
 
-  async function handlePreviewDocument(doc) {
+  async function handleOpenDocument(doc) {
     setActionError("");
+    setDocumentsError("");
     setPreviewError("");
+    setPreviewLoading(false);
     setSelectedDocument(doc);
+    if (!isPreviewableFile(doc?.filename)) {
+      return;
+    }
+
     setPreviewLoading(true);
     try {
       await ensureDocumentLinks(doc);
     } catch (e) {
-      setPreviewError(e?.message || "Could not load preview.");
-      setActionError(e?.message || "Could not load preview.");
+      setPreviewError(e?.message || "Could not load document.");
+      setActionError(e?.message || "Could not load document.");
     } finally {
       setPreviewLoading(false);
     }
   }
 
-  async function handleOpenDocument(doc) {
+  async function handleDownloadDocument(doc) {
     setActionError("");
+    setDocumentsError("");
     try {
       const links = await ensureDocumentLinks(doc);
-      await openDocumentUrl(links?.content_url);
+      if (typeof window !== "undefined" && links?.download_url) {
+        window.location.assign(links.download_url);
+      }
     } catch (e) {
-      setActionError(e?.message || "Could not open document.");
+      setActionError(e?.message || "Could not download document.");
+      setDocumentsError(e?.message || "Could not download document.");
     }
   }
 
-  async function handleDownloadDocument(doc) {
-    setActionError("");
+  async function handleUploadDocument() {
+    setDocumentsError("");
+    if (!uploadFile) {
+      setDocumentsError("Choose a file first.");
+      return;
+    }
+    if (uploadFile.size > MAX_FILE_SIZE) {
+      setDocumentsError("File must be under 25MB.");
+      return;
+    }
+    if (uploadFile.type && !ALLOWED_TYPES.includes(uploadFile.type)) {
+      setDocumentsError("Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG.");
+      return;
+    }
+
+    setUploadBusy(true);
     try {
-      const links = await ensureDocumentLinks(doc);
-      await openDocumentUrl(links?.download_url);
+      await uploadMatterFile(Number(matterId), uploadFile);
+      const nextDocs = await fetchMatterDocuments(matterId);
+      setDocs(Array.isArray(nextDocs) ? nextDocs : []);
+      setUploadFile(null);
+      await refreshEvents();
+
+      const fileInput = document.getElementById("client-workspace-upload-input");
+      if (fileInput) fileInput.value = "";
     } catch (e) {
-      setActionError(e?.message || "Could not download document.");
+      setDocumentsError(e?.message || "Upload failed.");
+    } finally {
+      setUploadBusy(false);
     }
   }
 
@@ -263,7 +303,63 @@ export default function ClientMatterDetailPage({ params }) {
 
             <div className="rounded-2xl bg-white border shadow-xl p-6">
               <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-              <ul className="mt-3 space-y-2 rounded-xl border bg-slate-50 p-2 max-h-[420px] overflow-y-auto">
+              <p className="mt-2 text-sm text-slate-600">
+                Open documents in a modal or download them directly.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                <input
+                  id="client-workspace-upload-input"
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setDocumentsError("");
+                    setUploadFile(null);
+
+                    if (!f) return;
+                    if (f.size > MAX_FILE_SIZE) {
+                      setDocumentsError("File must be under 25MB.");
+                      e.target.value = "";
+                      return;
+                    }
+                    if (f.type && !ALLOWED_TYPES.includes(f.type)) {
+                      setDocumentsError(
+                        "Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG."
+                      );
+                      e.target.value = "";
+                      return;
+                    }
+                    setUploadFile(f);
+                  }}
+                  className="block w-full text-sm"
+                  disabled={uploadBusy}
+                />
+
+                {uploadFile ? (
+                  <p className="text-xs text-slate-600">
+                    Selected: <span className="font-medium">{uploadFile.name}</span>{" "}
+                    ({Math.ceil(uploadFile.size / 1024)} KB)
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Allowed: PDF, DOC, DOCX, JPG, PNG • Max 25MB
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleUploadDocument}
+                  disabled={uploadBusy || !uploadFile}
+                  className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {uploadBusy ? "Uploading..." : "Upload document"}
+                </button>
+
+                {documentsError && <p className="text-sm text-red-600">{documentsError}</p>}
+              </div>
+
+              <ul className="mt-4 space-y-2 rounded-xl border bg-slate-50 p-2 max-h-[420px] overflow-y-auto">
                 {docs.length ? (
                   docs.map((d) => (
                     <li key={d.id} className="rounded-lg border bg-white p-3">
@@ -277,15 +373,6 @@ export default function ClientMatterDetailPage({ params }) {
                           </p>
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                          {isPreviewableFile(d.filename) && (
-                            <button
-                              type="button"
-                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                              onClick={() => handlePreviewDocument(d)}
-                            >
-                              Preview
-                            </button>
-                          )}
                           <button
                             type="button"
                             className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
@@ -310,43 +397,6 @@ export default function ClientMatterDetailPage({ params }) {
                   </li>
                 )}
               </ul>
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Document Preview</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Preview PDFs and images directly in the workspace.
-            </p>
-
-            <div className="mt-4">
-              {!selectedDocument ? (
-                <p className="text-sm text-slate-500">Select a document to preview it here.</p>
-              ) : previewLoading ? (
-                <p className="text-sm text-slate-600">Loading preview...</p>
-              ) : previewError ? (
-                <p className="text-sm text-red-600">{previewError}</p>
-              ) : documentLinks[selectedDocument.id]?.content_url ? (
-                isPreviewablePdf(selectedDocument.filename) ? (
-                  <iframe
-                    src={documentLinks[selectedDocument.id].content_url}
-                    title={selectedDocument.filename}
-                    className="mt-3 h-[450px] sm:h-[600px] w-full rounded-xl border bg-white"
-                  />
-                ) : isPreviewableImage(selectedDocument.filename) ? (
-                  <img
-                    src={documentLinks[selectedDocument.id].content_url}
-                    alt={selectedDocument.filename}
-                    className="mt-3 max-h-[700px] w-full rounded-xl border object-contain bg-slate-50"
-                  />
-                ) : (
-                  <p className="text-sm text-slate-500">
-                    Preview is not available for this file type.
-                  </p>
-                )
-              ) : (
-                <p className="text-sm text-slate-500">Preview is not available.</p>
-              )}
             </div>
           </div>
 
@@ -436,6 +486,56 @@ export default function ClientMatterDetailPage({ params }) {
               )}
             </div>
           </div>
+
+          {selectedDocument && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+              <div className="w-full max-w-5xl rounded-2xl bg-white p-4 shadow-xl">
+                <div className="flex items-center justify-between gap-4">
+                  <h3 className="text-lg font-semibold text-slate-900 break-words">
+                    {selectedDocument.filename}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDocument(null);
+                      setPreviewError("");
+                    }}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  {previewLoading ? (
+                    <p className="text-sm text-slate-600">Loading document...</p>
+                  ) : previewError ? (
+                    <p className="text-sm text-red-600">{previewError}</p>
+                  ) : !isPreviewableFile(selectedDocument.filename) ? (
+                    <p className="text-sm text-slate-500">
+                      This file type cannot be opened in the in-app viewer. Use Download instead.
+                    </p>
+                  ) : documentLinks[selectedDocument.id]?.content_url ? (
+                    isPreviewablePdf(selectedDocument.filename) ? (
+                      <iframe
+                        src={documentLinks[selectedDocument.id].content_url}
+                        title={selectedDocument.filename}
+                        className="h-[500px] w-full rounded-xl border bg-white"
+                      />
+                    ) : (
+                      <img
+                        src={documentLinks[selectedDocument.id].content_url}
+                        alt={selectedDocument.filename}
+                        className="max-h-[700px] w-full rounded-xl border object-contain bg-slate-50"
+                      />
+                    )
+                  ) : (
+                    <p className="text-sm text-slate-500">Open is not available for this file.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
         </>
