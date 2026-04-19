@@ -499,7 +499,7 @@ export default function LawyerMatterDetailPage({ params }) {
             {matterLoading ? "Loading matter..." : matter?.title || "Matter"}
           </h1>
 
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-3 text-sm text-slate-500">
             Matter #{matter?.id ?? "—"} • Created {formatDateTime(matter?.created_at)}
           </p>
         </div>
@@ -541,7 +541,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   value={matter.status || "Open"}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={statusSaving}
-                  className="mt-2 w-full rounded-lg border-slate-300 px-3 py-2 shadow-sm focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
+                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -560,7 +560,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   value={descriptionDraft}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
                   rows={6}
-                  className="mt-2 min-h-[180px] w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm resize-y focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 min-h-[180px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
                   placeholder="Add details for this matter..."
                 />
               </div>
@@ -589,7 +589,7 @@ export default function LawyerMatterDetailPage({ params }) {
             </p>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 space-y-5">
             <div className="space-y-3">
               <input
                 id="lawyer-workspace-upload-input"
@@ -642,7 +642,10 @@ export default function LawyerMatterDetailPage({ params }) {
             ) : docs.length ? (
               <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
                 {docs.map((d) => (
-                  <div key={d.id} className="rounded-xl border bg-slate-50 p-4 space-y-3">
+                  <div
+                    key={d.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+                  >
                     <div>
                       <p className="text-sm font-medium text-slate-900 break-words">{d.filename}</p>
                       <p className="mt-1 text-xs text-slate-500">
@@ -650,7 +653,7 @@ export default function LawyerMatterDetailPage({ params }) {
                       </p>
                     </div>
 
-                    <div className="flex gap-2 flex-wrap">
+                    <div className="mt-3 flex gap-2 flex-wrap">
                       {isPreviewableFile(d.filename) && (
                         <button
                           type="button"
@@ -675,7 +678,9 @@ export default function LawyerMatterDetailPage({ params }) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No documents yet.</p>
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                No documents yet.
+              </div>
             )}
           </div>
         </section>
@@ -695,7 +700,7 @@ export default function LawyerMatterDetailPage({ params }) {
               value={internalNoteContent}
               onChange={(e) => setInternalNoteContent(e.target.value)}
               rows={4}
-              className="min-h-[140px] w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm resize-y focus:border-blue-600 focus:ring-blue-600"
+              className="min-h-[140px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
               placeholder="Add a private internal note..."
             />
 
@@ -717,20 +722,27 @@ export default function LawyerMatterDetailPage({ params }) {
               <p className="text-sm text-slate-600">Loading internal notes...</p>
             ) : internalNotes.length ? (
               internalNotes.map((n) => (
-                <div key={n.id} className="rounded-xl border bg-slate-50 p-4">
+                <div
+                  key={n.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
+                >
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <p className="text-sm font-semibold text-slate-900">
                       {n.user_name || `User ${n.user_id}`}
                     </p>
-                    <p className="text-xs text-slate-500">{formatDateTime(n.created_at)}</p>
+                    <p className="text-xs text-slate-500 whitespace-nowrap">
+                      {formatDateTime(n.created_at)}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
+                  <p className="mt-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">
                     {n.content}
                   </p>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-500">No internal notes yet.</p>
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                No internal notes yet.
+              </div>
             )}
           </div>
         </section>
@@ -743,12 +755,12 @@ export default function LawyerMatterDetailPage({ params }) {
             </p>
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={handleCreateSharedUpdate}>
+          <form className="mt-6 space-y-3" onSubmit={handleCreateSharedUpdate}>
             <textarea
               value={sharedUpdateContent}
               onChange={(e) => setSharedUpdateContent(e.target.value)}
               rows={4}
-              className="min-h-[140px] w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm resize-y focus:border-blue-600 focus:ring-blue-600"
+              className="min-h-[140px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
               placeholder="Add a shared update..."
             />
 
@@ -770,20 +782,27 @@ export default function LawyerMatterDetailPage({ params }) {
               <p className="text-sm text-slate-600">Loading shared updates...</p>
             ) : sharedUpdates.length ? (
               sharedUpdates.map((n) => (
-                <div key={n.id} className="rounded-xl border bg-blue-50/50 p-4">
+                <div
+                  key={n.id}
+                  className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 shadow-sm"
+                >
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <p className="text-sm font-semibold text-slate-900">
                       {n.user_name || `User ${n.user_id}`}
                     </p>
-                    <p className="text-xs text-slate-500">{formatDateTime(n.created_at)}</p>
+                    <p className="text-xs text-slate-500 whitespace-nowrap">
+                      {formatDateTime(n.created_at)}
+                    </p>
                   </div>
-                  <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
+                  <p className="mt-2 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words">
                     {n.content}
                   </p>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-slate-500">No shared updates yet.</p>
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                No shared updates yet.
+              </div>
             )}
           </div>
         </section>
@@ -792,7 +811,7 @@ export default function LawyerMatterDetailPage({ params }) {
       <section className="rounded-2xl border bg-white shadow-xl p-6">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Activity</h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-slate-500">
             Timeline of activity for this matter.
           </p>
         </div>
@@ -805,7 +824,7 @@ export default function LawyerMatterDetailPage({ params }) {
           ) : events.length ? (
             <ul className="space-y-3">
               {events.map((ev) => (
-                <li key={ev.id} className="rounded-xl border bg-white px-4 py-3">
+                <li key={ev.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <p className="text-sm text-slate-800">{ev.message}</p>
                     <p className="text-xs text-slate-500 whitespace-nowrap">
@@ -816,7 +835,9 @@ export default function LawyerMatterDetailPage({ params }) {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-500">No activity yet.</p>
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+              No activity yet.
+            </div>
           )}
         </div>
       </section>
