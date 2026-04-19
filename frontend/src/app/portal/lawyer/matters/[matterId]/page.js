@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -64,6 +63,25 @@ function getErrorMessage(error, fallback) {
   if (typeof error === "string") return error;
   if (typeof error?.message === "string" && error.message.trim()) return error.message;
   return fallback;
+}
+
+function normalizeStatus(status) {
+  const value = (status || "").toString().trim();
+  if (!value) return "Open";
+  return value;
+}
+
+function getStatusBadgeClass(status) {
+  const s = normalizeStatus(status);
+  return `whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ${
+    s === "Closed"
+      ? "bg-red-100 text-red-700"
+      : s === "Waiting on Client"
+      ? "bg-amber-100 text-amber-700"
+      : s === "In Progress"
+      ? "bg-green-100 text-green-700"
+      : "bg-blue-100 text-blue-700"
+  }`;
 }
 
 export default function LawyerMatterDetailPage({ params }) {
@@ -466,56 +484,64 @@ export default function LawyerMatterDetailPage({ params }) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-10">
-      <Link href="/portal/lawyer" className="text-sm text-blue-700 hover:underline">
-        ← Back to dashboard
-      </Link>
+    <div className="container mx-auto px-4 py-10 space-y-6">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={() => router.push("/portal/lawyer")}
+            className="text-sm text-blue-700 hover:underline"
+          >
+            ← Back to dashboard
+          </button>
 
-      {pageError && <p className="mt-4 text-sm text-red-600">{pageError}</p>}
+          <h1 className="mt-3 text-2xl font-semibold text-slate-900 break-words">
+            {matterLoading ? "Loading matter..." : matter?.title || "Matter"}
+          </h1>
 
-      <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          {matterLoading ? (
-            <>
-              <h1 className="text-2xl font-bold text-slate-900">Loading matter...</h1>
-              <p className="mt-1 text-xs text-slate-500">Please wait while we load details.</p>
-            </>
-          ) : matter ? (
-            <>
-              <h1 className="text-2xl font-bold text-slate-900">{matter.title}</h1>
-              <p className="mt-1 text-xs text-slate-500">
-                Matter #{matter.id} • Created {formatDateTime(matter.created_at)}
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className="text-2xl font-bold text-slate-900">Matter unavailable</h1>
-              <p className="mt-1 text-xs text-slate-500">
-                This matter could not be loaded or you do not have access.
-              </p>
-            </>
-          )}
+          <p className="mt-2 text-sm text-slate-500">
+            Matter #{matter?.id ?? "—"} • Created {formatDateTime(matter?.created_at)}
+          </p>
         </div>
-        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">
-          {matterLoading ? "Loading..." : matter?.status || "Open"}
+
+        <span className={getStatusBadgeClass(matter?.status)}>
+          {matterLoading ? "Loading..." : normalizeStatus(matter?.status)}
         </span>
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="rounded-2xl bg-white border shadow-xl p-6 lg:col-span-2">
-          <h2 className="text-lg font-semibold text-slate-900">Matter Workspace</h2>
+      {pageError && (
+        <div className="rounded-2xl border bg-white shadow-xl p-6">
+          <p className="text-sm text-red-600">{pageError}</p>
+        </div>
+      )}
+
+      {(actionError || actionSuccess) && (
+        <div className="space-y-2">
+          {actionError && <p className="text-sm text-red-600">{actionError}</p>}
+          {actionSuccess && <p className="text-sm text-green-600">{actionSuccess}</p>}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <section className="xl:col-span-2 rounded-2xl border bg-white shadow-xl p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Matter Details</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Manage the case summary, status, and current working details.
+            </p>
+          </div>
 
           {matterLoading ? (
-            <p className="mt-4 text-sm text-slate-600">Loading matter details...</p>
+            <p className="mt-6 text-sm text-slate-600">Loading matter details...</p>
           ) : matter ? (
-            <>
-              <div className="mt-4">
+            <div className="mt-6 space-y-5">
+              <div>
                 <label className="block text-sm font-medium text-slate-800">Status</label>
                 <select
                   value={matter.status || "Open"}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={statusSaving}
-                  className="mt-2 w-full rounded-lg border px-3 py-2 text-sm disabled:opacity-60"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-3 py-2 shadow-sm focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -525,336 +551,325 @@ export default function LawyerMatterDetailPage({ params }) {
                 </select>
               </div>
 
-              <div className="mt-5">
-                <label className="block text-sm font-medium text-slate-800">
-                  Description
-                </label>
+              <div>
+                <label className="block text-sm font-medium text-slate-800">Description</label>
+                <p className="mt-1 text-xs text-slate-500">
+                  Use this area to keep the current matter summary and next steps up to date.
+                </p>
                 <textarea
                   value={descriptionDraft}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
                   rows={6}
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 min-h-[180px] w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm resize-y focus:border-blue-600 focus:ring-blue-600"
                   placeholder="Add details for this matter..."
                 />
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleDescriptionSave}
-                    disabled={descriptionSaving}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-60"
-                  >
-                    {descriptionSaving ? "Saving..." : "Save description"}
-                  </button>
-                </div>
               </div>
-            </>
-          ) : (
-            <p className="mt-4 text-sm text-slate-500">Matter details are unavailable.</p>
-          )}
 
-          {actionError && <p className="mt-4 text-sm text-red-600">{actionError}</p>}
-          {actionSuccess && <p className="mt-4 text-sm text-green-600">{actionSuccess}</p>}
-        </div>
-
-        <div className="rounded-2xl bg-white border shadow-xl p-6">
-          <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Open documents in a modal or download them directly.
-          </p>
-
-          <div className="mt-4 space-y-3">
-                <input
-                  id="lawyer-workspace-upload-input"
-                  type="file"
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
-                  onChange={(e) => {
-                    const f = e.target.files?.[0] ?? null;
-                    setDocumentsError("");
-                    setUploadFile(null);
-
-                    if (!f) return;
-                    if (f.size > MAX_FILE_SIZE) {
-                      setDocumentsError("File must be under 25MB.");
-                      e.target.value = "";
-                      return;
-                    }
-                    if (f.type && !ALLOWED_TYPES.includes(f.type)) {
-                      setDocumentsError(
-                        "Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG."
-                      );
-                      e.target.value = "";
-                      return;
-                    }
-                    setUploadFile(f);
-                  }}
-                  className="block w-full text-sm"
-                  disabled={uploadBusy}
-                />
-
-                {uploadFile ? (
-                  <p className="text-xs text-slate-600">
-                    Selected: <span className="font-medium">{uploadFile.name}</span>{" "}
-                    ({Math.ceil(uploadFile.size / 1024)} KB)
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-500">
-                    Allowed: PDF, DOC, DOCX, JPG, PNG • Max 25MB
-                  </p>
-                )}
-
+              <div className="flex justify-end">
                 <button
                   type="button"
-                  onClick={handleUploadDocument}
-                  disabled={uploadBusy || !uploadFile}
-                  className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  onClick={handleDescriptionSave}
+                  disabled={descriptionSaving}
+                  className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
                 >
-                  {uploadBusy ? "Uploading..." : "Upload document"}
+                  {descriptionSaving ? "Saving..." : "Save description"}
                 </button>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-6 text-sm text-slate-500">Matter details are unavailable.</p>
+          )}
+        </section>
 
-                {documentsError && <p className="text-sm text-red-600">{documentsError}</p>}
+        <section className="xl:col-span-1 rounded-2xl border bg-white shadow-xl p-6">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Upload files for this matter and access them here.
+            </p>
           </div>
 
-          {documentsLoading ? (
-            <p className="mt-4 text-sm text-slate-600">Loading documents...</p>
-          ) : (
-            <ul className="mt-4 space-y-2 rounded-xl border bg-slate-50 p-2 max-h-[420px] overflow-y-auto">
-              {docs.length ? (
-                docs.map((d) => (
-                    <li key={d.id} className="rounded-lg border bg-white p-3">
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-900 break-words">
-                            {d.filename}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            Uploaded {formatDateTime(d.created_at)}
-                          </p>
-                        </div>
-                        <div className="flex gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
-                            onMouseEnter={() => {
-                              if (isPreviewableFile(d.filename)) {
-                                void ensureDocumentLinks(d);
-                              }
-                            }}
-                            onClick={() => handleOpenDocument(d)}
-                          >
-                            Open
-                          </button>
-                          <button
-                            type="button"
-                            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                            onClick={() => handleDownloadDocument(d)}
-                          >
-                            Download
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                ))
-              ) : (
-                <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
-                  No documents yet.
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
+          <div className="mt-6 space-y-4">
+            <div className="space-y-3">
+              <input
+                id="lawyer-workspace-upload-input"
+                type="file"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  setDocumentsError("");
+                  setUploadFile(null);
+
+                  if (!f) return;
+                  if (f.size > MAX_FILE_SIZE) {
+                    setDocumentsError("File must be under 25MB.");
+                    e.target.value = "";
+                    return;
+                  }
+                  if (f.type && !ALLOWED_TYPES.includes(f.type)) {
+                    setDocumentsError(
+                      "Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG."
+                    );
+                    e.target.value = "";
+                    return;
+                  }
+                  setUploadFile(f);
+                }}
+                className="block w-full text-sm"
+                disabled={uploadBusy}
+              />
+
+              <p className="text-xs text-slate-500">
+                {uploadFile
+                  ? `Selected: ${uploadFile.name} (${Math.ceil(uploadFile.size / 1024)} KB)`
+                  : "Allowed: PDF, DOC, DOCX, JPG, PNG • Max 25MB"}
+              </p>
+
+              <button
+                type="button"
+                onClick={handleUploadDocument}
+                disabled={uploadBusy || !uploadFile}
+                className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {uploadBusy ? "Uploading..." : "Upload document"}
+              </button>
+            </div>
+
+            {documentsError && <p className="text-sm text-red-600">{documentsError}</p>}
+
+            {documentsLoading ? (
+              <p className="text-sm text-slate-600">Loading documents...</p>
+            ) : docs.length ? (
+              <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
+                {docs.map((d) => (
+                  <div key={d.id} className="rounded-xl border bg-slate-50 p-4 space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 break-words">{d.filename}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Uploaded {formatDateTime(d.created_at)}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 flex-wrap">
+                      {isPreviewableFile(d.filename) && (
+                        <button
+                          type="button"
+                          onMouseEnter={() => {
+                            void ensureDocumentLinks(d);
+                          }}
+                          onClick={() => handleOpenDocument(d)}
+                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                        >
+                          Open
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadDocument(d)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      >
+                        Download
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No documents yet.</p>
+            )}
+          </div>
+        </section>
       </div>
 
-          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section className="rounded-2xl border bg-white shadow-xl p-6">
+          <div>
             <h2 className="text-lg font-semibold text-slate-900">Internal Notes</h2>
             <p className="mt-2 text-sm text-slate-600">
               Private notes visible only to the lawyer.
             </p>
+          </div>
 
-            <form className="mt-4 space-y-3" onSubmit={handleCreateInternalNote}>
-              <textarea
-                value={internalNoteContent}
-                onChange={(e) => setInternalNoteContent(e.target.value)}
-                rows={4}
-                className="w-full resize-y rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600 min-h-[120px]"
-                placeholder="Add a private internal note..."
-              />
+          <form className="mt-6 space-y-4" onSubmit={handleCreateInternalNote}>
+            <textarea
+              value={internalNoteContent}
+              onChange={(e) => setInternalNoteContent(e.target.value)}
+              rows={4}
+              className="min-h-[140px] w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm resize-y focus:border-blue-600 focus:ring-blue-600"
+              placeholder="Add a private internal note..."
+            />
 
-              {internalNotesError && (
-                <p className="text-sm text-red-600">{internalNotesError}</p>
-              )}
+            {internalNotesError && <p className="text-sm text-red-600">{internalNotesError}</p>}
 
+            <div className="flex justify-start">
               <button
                 type="submit"
                 disabled={internalNoteBusy}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-white hover:bg-black disabled:opacity-60"
+                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
               >
                 {internalNoteBusy ? "Saving..." : "Add Internal Note"}
               </button>
-            </form>
-
-            <div className="mt-6">
-              {internalNotesLoading ? (
-                <p className="text-sm text-slate-600">Loading internal notes...</p>
-              ) : internalNotes.length ? (
-                <ul className="space-y-3">
-                  {internalNotes.map((n) => (
-                    <li key={n.id} className="rounded-xl border bg-slate-50 p-4">
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <p className="text-sm font-medium text-slate-900">
-                          {n.user_name || `User ${n.user_id}`}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {n.created_at ? new Date(n.created_at).toLocaleString() : ""}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
-                        {n.content}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-slate-500">No internal notes yet.</p>
-              )}
             </div>
-          </div>
+          </form>
 
-          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
+          <div className="mt-6 space-y-3">
+            {internalNotesLoading ? (
+              <p className="text-sm text-slate-600">Loading internal notes...</p>
+            ) : internalNotes.length ? (
+              internalNotes.map((n) => (
+                <div key={n.id} className="rounded-xl border bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {n.user_name || `User ${n.user_id}`}
+                    </p>
+                    <p className="text-xs text-slate-500">{formatDateTime(n.created_at)}</p>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
+                    {n.content}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">No internal notes yet.</p>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border bg-white shadow-xl p-6">
+          <div>
             <h2 className="text-lg font-semibold text-slate-900">Shared Updates</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Visible to both lawyer and client for matter related updates.
+              Updates shared with the client for this matter.
             </p>
+          </div>
 
-            <form className="mt-4 space-y-3" onSubmit={handleCreateSharedUpdate}>
-              <textarea
-                value={sharedUpdateContent}
-                onChange={(e) => setSharedUpdateContent(e.target.value)}
-                rows={4}
-                className="w-full resize-y rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600 min-h-[120px]"
-                placeholder="Add a shared update..."
-              />
+          <form className="mt-6 space-y-4" onSubmit={handleCreateSharedUpdate}>
+            <textarea
+              value={sharedUpdateContent}
+              onChange={(e) => setSharedUpdateContent(e.target.value)}
+              rows={4}
+              className="min-h-[140px] w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm resize-y focus:border-blue-600 focus:ring-blue-600"
+              placeholder="Add a shared update..."
+            />
 
-              {sharedUpdatesError && (
-                <p className="text-sm text-red-600">{sharedUpdatesError}</p>
-              )}
+            {sharedUpdatesError && <p className="text-sm text-red-600">{sharedUpdatesError}</p>}
 
+            <div className="flex justify-start">
               <button
                 type="submit"
                 disabled={sharedUpdateBusy}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
               >
                 {sharedUpdateBusy ? "Saving..." : "Add Shared Update"}
               </button>
-            </form>
-
-            <div className="mt-6">
-              {sharedUpdatesLoading ? (
-                <p className="text-sm text-slate-600">Loading shared updates...</p>
-              ) : sharedUpdates.length ? (
-                <ul className="space-y-3">
-                  {sharedUpdates.map((n) => (
-                    <li key={n.id} className="rounded-xl border bg-blue-50 p-4">
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <p className="text-sm font-medium text-slate-900">
-                          {n.user_name || `User ${n.user_id}`}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {n.created_at ? new Date(n.created_at).toLocaleString() : ""}
-                        </p>
-                      </div>
-                      <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
-                        {n.content}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-slate-500">No shared updates yet.</p>
-              )}
             </div>
-          </div>
+          </form>
 
-          <div className="mt-6 rounded-2xl bg-white border shadow-xl p-6">
-            <h2 className="text-lg font-semibold text-slate-900">Activity</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Timeline of activity for this matter.
-            </p>
-
-            <div className="mt-6">
-              {eventsLoading ? (
-                <p className="text-sm text-slate-600">Loading activity...</p>
-              ) : eventsError ? (
-                <p className="text-sm text-red-600">{eventsError}</p>
-              ) : events.length ? (
-                <ul className="space-y-3">
-                  {events.map((ev) => (
-                    <li key={ev.id} className="rounded-xl border bg-slate-50 p-4">
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <p className="text-sm font-medium text-slate-900">
-                          {ev.message}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {ev.created_at ? new Date(ev.created_at).toLocaleString() : ""}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-slate-500">No activity yet.</p>
-              )}
-            </div>
-          </div>
-
-          {selectedDocument && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-              <div className="w-full max-w-5xl rounded-2xl bg-white p-4 shadow-xl">
-                <div className="flex items-center justify-between gap-4">
-                  <h3 className="text-lg font-semibold text-slate-900 break-words">
-                    {selectedDocument.filename}
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedDocument(null);
-                      setPreviewError("");
-                    }}
-                    className="text-slate-400 hover:text-slate-600"
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="mt-4">
-                  {previewLoading ? (
-                    <p className="text-sm text-slate-600">Loading document...</p>
-                  ) : previewError ? (
-                    <p className="text-sm text-red-600">{previewError}</p>
-                  ) : !isPreviewableFile(selectedDocument.filename) ? (
-                    <p className="text-sm text-slate-500">
-                      This file type cannot be opened in the in-app viewer. Use Download instead.
+          <div className="mt-6 space-y-3">
+            {sharedUpdatesLoading ? (
+              <p className="text-sm text-slate-600">Loading shared updates...</p>
+            ) : sharedUpdates.length ? (
+              sharedUpdates.map((n) => (
+                <div key={n.id} className="rounded-xl border bg-blue-50/50 p-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {n.user_name || `User ${n.user_id}`}
                     </p>
-                  ) : documentLinks[selectedDocument.id]?.content_url ? (
-                    isPreviewablePdf(selectedDocument.filename) ? (
-                      <iframe
-                        src={documentLinks[selectedDocument.id].content_url}
-                        title={selectedDocument.filename}
-                        className="h-[500px] w-full rounded-xl border bg-white"
-                      />
-                    ) : (
-                      <img
-                        src={documentLinks[selectedDocument.id].content_url}
-                        alt={selectedDocument.filename}
-                        className="max-h-[700px] w-full rounded-xl border object-contain bg-slate-50"
-                      />
-                    )
-                  ) : (
-                    <p className="text-sm text-slate-500">Open is not available for this file.</p>
-                  )}
+                    <p className="text-xs text-slate-500">{formatDateTime(n.created_at)}</p>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap break-words">
+                    {n.content}
+                  </p>
                 </div>
-              </div>
-            </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">No shared updates yet.</p>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-2xl border bg-white shadow-xl p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Activity</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Timeline of activity for this matter.
+          </p>
+        </div>
+
+        <div className="mt-6">
+          {eventsLoading ? (
+            <p className="text-sm text-slate-600">Loading activity...</p>
+          ) : eventsError ? (
+            <p className="text-sm text-red-600">{eventsError}</p>
+          ) : events.length ? (
+            <ul className="space-y-3">
+              {events.map((ev) => (
+                <li key={ev.id} className="rounded-xl border bg-white px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-sm text-slate-800">{ev.message}</p>
+                    <p className="text-xs text-slate-500 whitespace-nowrap">
+                      {formatDateTime(ev.created_at)}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-500">No activity yet.</p>
           )}
+        </div>
+      </section>
+
+      {selectedDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-5xl rounded-2xl bg-white p-4 shadow-xl">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-lg font-semibold text-slate-900 break-words">
+                {selectedDocument.filename}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDocument(null);
+                  setPreviewError("");
+                }}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4">
+              {previewLoading ? (
+                <p className="text-sm text-slate-600">Loading document...</p>
+              ) : previewError ? (
+                <p className="text-sm text-red-600">{previewError}</p>
+              ) : !isPreviewableFile(selectedDocument.filename) ? (
+                <p className="text-sm text-slate-500">
+                  This file type cannot be opened in the in-app viewer. Use Download instead.
+                </p>
+              ) : documentLinks[selectedDocument.id]?.content_url ? (
+                isPreviewablePdf(selectedDocument.filename) ? (
+                  <iframe
+                    src={documentLinks[selectedDocument.id].content_url}
+                    title={selectedDocument.filename}
+                    className="h-[500px] w-full rounded-xl border bg-white"
+                  />
+                ) : (
+                  <img
+                    src={documentLinks[selectedDocument.id].content_url}
+                    alt={selectedDocument.filename}
+                    className="max-h-[700px] w-full rounded-xl border object-contain bg-slate-50"
+                  />
+                )
+              ) : (
+                <p className="text-sm text-slate-500">Open is not available for this file.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
