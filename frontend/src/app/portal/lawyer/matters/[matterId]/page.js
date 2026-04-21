@@ -73,14 +73,14 @@ function normalizeStatus(status) {
 
 function getStatusBadgeClass(status) {
   const s = normalizeStatus(status);
-  return `whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ${
+  return `whitespace-nowrap rounded-full border px-3 py-1 text-sm font-medium ${
     s === "Closed"
-      ? "bg-red-100 text-red-700"
+      ? "border-red-200 bg-red-50 text-red-700"
       : s === "Waiting on Client"
-      ? "bg-amber-100 text-amber-700"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
       : s === "In Progress"
-      ? "bg-green-100 text-green-700"
-      : "bg-blue-100 text-blue-700"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : "border-blue-200 bg-blue-50 text-blue-700"
   }`;
 }
 
@@ -541,7 +541,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   value={matter.status || "Open"}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={statusSaving}
-                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
+                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-blue-600 focus:ring-blue-600 disabled:opacity-60"
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -560,7 +560,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   value={descriptionDraft}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
                   rows={6}
-                  className="mt-2 min-h-[180px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 min-h-[180px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
                   placeholder="Add details for this matter..."
                 />
               </div>
@@ -589,7 +589,7 @@ export default function LawyerMatterDetailPage({ params }) {
             </p>
           </div>
 
-          <div className="mt-6 space-y-5">
+          <div className="mt-6 space-y-6">
             <div className="space-y-3">
               <input
                 id="lawyer-workspace-upload-input"
@@ -640,7 +640,7 @@ export default function LawyerMatterDetailPage({ params }) {
             {documentsLoading ? (
               <p className="text-sm text-slate-600">Loading documents...</p>
             ) : docs.length ? (
-              <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
+              <div className="max-h-[420px] overflow-y-auto space-y-5 pr-1">
                 {docs.map((d) => (
                   <div
                     key={d.id}
@@ -695,18 +695,18 @@ export default function LawyerMatterDetailPage({ params }) {
             </p>
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={handleCreateInternalNote}>
+          <form className="mt-6 space-y-3" onSubmit={handleCreateInternalNote}>
             <textarea
               value={internalNoteContent}
               onChange={(e) => setInternalNoteContent(e.target.value)}
               rows={4}
-              className="min-h-[140px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
+              className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
               placeholder="Add a private internal note..."
             />
 
             {internalNotesError && <p className="text-sm text-red-600">{internalNotesError}</p>}
 
-            <div className="flex justify-start">
+            <div className="mt-2">
               <button
                 type="submit"
                 disabled={internalNoteBusy}
@@ -717,7 +717,7 @@ export default function LawyerMatterDetailPage({ params }) {
             </div>
           </form>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 max-h-[320px] overflow-y-auto space-y-3 pr-1">
             {internalNotesLoading ? (
               <p className="text-sm text-slate-600">Loading internal notes...</p>
             ) : internalNotes.length ? (
@@ -760,13 +760,13 @@ export default function LawyerMatterDetailPage({ params }) {
               value={sharedUpdateContent}
               onChange={(e) => setSharedUpdateContent(e.target.value)}
               rows={4}
-              className="min-h-[140px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
+              className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
               placeholder="Add a shared update..."
             />
 
             {sharedUpdatesError && <p className="text-sm text-red-600">{sharedUpdatesError}</p>}
 
-            <div className="flex justify-start">
+            <div className="mt-2">
               <button
                 type="submit"
                 disabled={sharedUpdateBusy}
@@ -777,7 +777,7 @@ export default function LawyerMatterDetailPage({ params }) {
             </div>
           </form>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 max-h-[320px] overflow-y-auto space-y-3 pr-1">
             {sharedUpdatesLoading ? (
               <p className="text-sm text-slate-600">Loading shared updates...</p>
             ) : sharedUpdates.length ? (
@@ -817,28 +817,33 @@ export default function LawyerMatterDetailPage({ params }) {
         </div>
 
         <div className="mt-6">
-          {eventsLoading ? (
-            <p className="text-sm text-slate-600">Loading activity...</p>
-          ) : eventsError ? (
-            <p className="text-sm text-red-600">{eventsError}</p>
-          ) : events.length ? (
-            <ul className="space-y-3">
-              {events.map((ev) => (
-                <li key={ev.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <p className="text-sm text-slate-800">{ev.message}</p>
-                    <p className="text-xs text-slate-500 whitespace-nowrap">
-                      {formatDateTime(ev.created_at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-              No activity yet.
-            </div>
-          )}
+          <div className="max-h-[280px] overflow-y-auto pr-1">
+            {eventsLoading ? (
+              <p className="text-sm text-slate-600">Loading activity...</p>
+            ) : eventsError ? (
+              <p className="text-sm text-red-600">{eventsError}</p>
+            ) : events.length ? (
+              <ul className="space-y-3">
+                {events.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <p className="text-sm text-slate-800">{ev.message}</p>
+                      <p className="text-xs text-slate-500 whitespace-nowrap">
+                        {formatDateTime(ev.created_at)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                No activity yet.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 

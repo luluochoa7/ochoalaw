@@ -69,14 +69,14 @@ function normalizeStatus(status) {
 
 function getStatusBadgeClass(status) {
   const s = normalizeStatus(status);
-  return `whitespace-nowrap rounded-full px-3 py-1 text-sm font-medium ${
+  return `whitespace-nowrap rounded-full border px-3 py-1 text-sm font-medium ${
     s === "Closed"
-      ? "bg-red-100 text-red-700"
+      ? "border-red-200 bg-red-50 text-red-700"
       : s === "Waiting on Client"
-      ? "bg-amber-100 text-amber-700"
+      ? "border-amber-200 bg-amber-50 text-amber-700"
       : s === "In Progress"
-      ? "bg-green-100 text-green-700"
-      : "bg-blue-100 text-blue-700"
+      ? "border-green-200 bg-green-50 text-green-700"
+      : "border-blue-200 bg-blue-50 text-blue-700"
   }`;
 }
 
@@ -432,7 +432,7 @@ export default function ClientMatterDetailPage({ params }) {
             </p>
           </div>
 
-          <div className="mt-6 space-y-5">
+          <div className="mt-6 space-y-6">
             <div className="space-y-3">
               <input
                 id="client-workspace-upload-input"
@@ -483,7 +483,7 @@ export default function ClientMatterDetailPage({ params }) {
             {documentsLoading ? (
               <p className="text-sm text-slate-600">Loading documents...</p>
             ) : docs.length ? (
-              <div className="max-h-[420px] overflow-y-auto space-y-3 pr-1">
+              <div className="max-h-[420px] overflow-y-auto space-y-5 pr-1">
                 {docs.map((d) => (
                   <div
                     key={d.id}
@@ -542,13 +542,13 @@ export default function ClientMatterDetailPage({ params }) {
             value={sharedUpdateContent}
             onChange={(e) => setSharedUpdateContent(e.target.value)}
             rows={4}
-            className="min-h-[140px] w-full rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
+            className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
             placeholder="Add an update or response..."
           />
 
           {sharedUpdatesError && <p className="text-sm text-red-600">{sharedUpdatesError}</p>}
 
-          <div className="flex justify-start">
+          <div className="mt-2">
             <button
               type="submit"
               disabled={sharedUpdateBusy}
@@ -559,7 +559,7 @@ export default function ClientMatterDetailPage({ params }) {
           </div>
         </form>
 
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 max-h-[320px] overflow-y-auto space-y-3 pr-1">
           {sharedUpdatesLoading ? (
             <p className="text-sm text-slate-600">Loading shared updates...</p>
           ) : sharedUpdates.length ? (
@@ -598,28 +598,33 @@ export default function ClientMatterDetailPage({ params }) {
         </div>
 
         <div className="mt-6">
-          {eventsLoading ? (
-            <p className="text-sm text-slate-600">Loading activity...</p>
-          ) : eventsError ? (
-            <p className="text-sm text-red-600">{eventsError}</p>
-          ) : events.length ? (
-            <ul className="space-y-3">
-              {events.map((ev) => (
-                <li key={ev.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <p className="text-sm text-slate-800">{ev.message}</p>
-                    <p className="text-xs text-slate-500 whitespace-nowrap">
-                      {formatDateTime(ev.created_at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-              No activity yet.
-            </div>
-          )}
+          <div className="max-h-[280px] overflow-y-auto pr-1">
+            {eventsLoading ? (
+              <p className="text-sm text-slate-600">Loading activity...</p>
+            ) : eventsError ? (
+              <p className="text-sm text-red-600">{eventsError}</p>
+            ) : events.length ? (
+              <ul className="space-y-3">
+                {events.map((ev) => (
+                  <li
+                    key={ev.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <p className="text-sm text-slate-800">{ev.message}</p>
+                      <p className="text-xs text-slate-500 whitespace-nowrap">
+                        {formatDateTime(ev.created_at)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                No activity yet.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
