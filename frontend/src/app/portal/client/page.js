@@ -19,11 +19,11 @@ function normalizeStatus(s) {
 
 function statusBadgeClass(status) {
   const s = normalizeStatus(status);
-  if (s === "Closed") return "bg-red-100 text-red-700";
-  if (s === "Waiting on Client") return "bg-amber-100 text-amber-700";
-  if (s === "In Progress") return "bg-green-100 text-green-700";
-  if (s === "Open") return "bg-blue-100 text-blue-700";
-  return "bg-slate-100 text-slate-700";
+  if (s === "Closed") return "border border-red-200 bg-red-50 text-red-700";
+  if (s === "Waiting on Client") return "border border-amber-200 bg-amber-50 text-amber-700";
+  if (s === "In Progress") return "border border-green-200 bg-green-50 text-green-700";
+  if (s === "Open") return "border border-blue-200 bg-blue-50 text-blue-700";
+  return "border border-slate-200 bg-slate-50 text-slate-700";
 }
 
 function fmtDateShort(iso) {
@@ -244,13 +244,13 @@ function DocumentsPanel({ matters, loadingMatters }) {
   }
 
   return (
-    <div className="rounded-2xl bg-white shadow-xl border p-6">
+    <section className="rounded-2xl border bg-white shadow-xl p-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
 
         <div className="w-full sm:w-auto">
           <select
-            className="w-full sm:w-[280px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            className="w-full sm:w-[280px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
             value={selectedMatterId}
             onChange={(e) => setSelectedMatterId(e.target.value)}
             disabled={loadingMatters || !matters?.length}
@@ -272,108 +272,110 @@ function DocumentsPanel({ matters, loadingMatters }) {
         Upload files into the selected matter and open or download them.
       </p>
 
-      <div className="mt-4 flex flex-col gap-3">
-        <input
-          id="client-doc-upload-input"
-          type="file"
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
-          onChange={(e) => {
-            const f = e.target.files?.[0] ?? null;
-            setErr("");
-            setFile(null);
+      <div className="mt-6 space-y-5">
+        <div className="space-y-3">
+          <input
+            id="client-doc-upload-input"
+            type="file"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              setErr("");
+              setFile(null);
 
-            if (!f) return;
+              if (!f) return;
 
-            if (f.size > MAX_FILE_SIZE) {
-              setErr("File must be under 25MB.");
-              e.target.value = ""; // reset picker
-              return;
-            }
-            if (f.type && !ALLOWED_TYPES.includes(f.type)) {
-              setErr("Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG.");
-              e.target.value = ""; // reset picker
-              return;
-            }
-            setFile(f); // only set if valid
-          }}
-          className="block w-full text-sm"
-          disabled={!selectedMatterId || busy}
-        />
+              if (f.size > MAX_FILE_SIZE) {
+                setErr("File must be under 25MB.");
+                e.target.value = "";
+                return;
+              }
+              if (f.type && !ALLOWED_TYPES.includes(f.type)) {
+                setErr("Unsupported file type. Please upload PDF, DOC, DOCX, JPG, or PNG.");
+                e.target.value = "";
+                return;
+              }
+              setFile(f);
+            }}
+            className="block w-full text-sm"
+            disabled={!selectedMatterId || busy}
+          />
 
-        {file ? (
-          <p className="text-xs text-slate-600">
-            Selected: <span className="font-medium">{file.name}</span>{" "}
-            ({Math.ceil(file.size / 1024)} KB)
-          </p>
-        ) : (
-          <p className="text-xs text-slate-500">
-            Allowed: PDF, DOC, DOCX, JPG, PNG • Max 25MB
-          </p>
-        )}
+          {file ? (
+            <p className="text-xs text-slate-600">
+              Selected: <span className="font-medium">{file.name}</span>{" "}
+              ({Math.ceil(file.size / 1024)} KB)
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Allowed: PDF, DOC, DOCX, JPG, PNG • Max 25MB
+            </p>
+          )}
 
-        <button
-          className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-          disabled={!selectedMatterId || busy || !file}
-          onClick={handleUpload}
-          type="button"
-        >
-          {busy ? "Uploading…" : "Upload document"}
-        </button>
+          <button
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            disabled={!selectedMatterId || busy || !file}
+            onClick={handleUpload}
+            type="button"
+          >
+            {busy ? "Uploading…" : "Upload document"}
+          </button>
 
-        {err && <p className="text-sm text-red-600">{err}</p>}
-      </div>
+          {err && <p className="text-sm text-red-600">{err}</p>}
+        </div>
 
-      <div className="mt-5">
-        <p className="text-sm font-medium text-slate-900">Uploaded files</p>
+        <div>
+          <p className="text-sm font-medium text-slate-900">Uploaded files</p>
 
-        <ul className="mt-2 max-h-[320px] overflow-y-auto space-y-2 rounded-xl border bg-slate-50 p-2">
-          {docsLoading ? (
-            <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
-              Loading documents...
-            </li>
-          ) : docs?.length ? (
-            docs.map((d) => (
-              <li key={d.id} className="rounded-lg border bg-white p-3">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 break-words">
-                      {d.filename}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Uploaded {d.created_at ? fmtDateTime(d.created_at) : "—"}
-                    </p>
-                  </div>
+          <div className="mt-3 max-h-[260px] overflow-y-auto space-y-3 pr-1">
+            {docsLoading ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm text-sm text-slate-600">
+                Loading documents...
+              </div>
+            ) : docs?.length ? (
+              docs.map((d) => (
+                <div key={d.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 break-words">
+                        {d.filename}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Uploaded {d.created_at ? fmtDateTime(d.created_at) : "—"}
+                      </p>
+                    </div>
 
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onMouseEnter={() => {
-                        if (isPreviewableFile(d.filename)) {
-                          void ensureDocumentLinks(d);
-                        }
-                      }}
-                      onClick={() => handleOpen(d)}
-                      className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
-                    >
-                      Open
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDownload(d)}
-                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100"
-                    >
-                      Download
-                    </button>
+                    <div className="mt-3 flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onMouseEnter={() => {
+                          if (isPreviewableFile(d.filename)) {
+                            void ensureDocumentLinks(d);
+                          }
+                        }}
+                        onClick={() => handleOpen(d)}
+                        className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(d)}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      >
+                        Download
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </li>
-            ))
-          ) : (
-            <li className="rounded-lg border bg-white p-3 text-sm text-slate-600">
-              No documents yet.
-            </li>
-          )}
-        </ul>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                No documents yet.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {selectedDocument && (
@@ -429,7 +431,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -503,10 +505,8 @@ export default function ClientDashboardPage() {
       {/* Header */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
         <div className="container mx-auto px-4 py-12 text-center">
-          <h1 className="text-3xl font-bold text-white">
-            Your Client Portal
-          </h1>
-          <p className="mt-2 text-blue-100">
+          <h1 className="text-3xl font-semibold text-white">Your Client Portal</h1>
+          <p className="mt-3 text-base text-slate-300">
             Everything related to your legal matters — in one secure place.
           </p>
         </div>
@@ -524,73 +524,78 @@ export default function ClientDashboardPage() {
           {/* Main column */}
           <div className="lg:col-span-2 space-y-6">
             {/* Matters */}
-            <div className="rounded-2xl bg-white shadow-xl border p-6">
-              <div className="-mx-6 -mt-6 px-6 py-4 border-b bg-white/70 backdrop-blur rounded-t-2xl sticky top-0 z-10">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Your Matters
-                </h2>
+            <section className="rounded-2xl border bg-white shadow-xl p-6">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Your Matters</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Review updates and open each matter workspace quickly.
+                </p>
               </div>
 
-              <div className="mt-4">
+              <div className="mt-6">
                 {mattersLoading ? (
-                  <p className="text-sm text-slate-600">Loading…</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
+                    Loading…
+                  </div>
                 ) : error ? (
-                  <p className="text-sm text-red-600">{error}</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-red-600">
+                    {error}
+                  </div>
                 ) : matters.length === 0 ? (
-                  <p className="text-sm text-slate-500">
+                  <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     You don’t have any active matters yet.
-                  </p>
+                  </div>
                 ) : (
-                  <>
-                    <ul className="mt-3 max-h-[420px] overflow-y-auto space-y-2 pr-1">
-                      {matters.map((m) => (
-                        <li key={m.id}>
-                          <Link
-                            href={`/portal/client/matters/${m.id}`}
-                            prefetch={true}
-                            className="flex items-center justify-between rounded-xl border bg-white px-4 py-4 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-[1px] transition cursor-pointer"
+                  <div className="max-h-[320px] overflow-y-auto space-y-3 pr-1">
+                    {matters.map((m) => (
+                      <Link
+                        key={m.id}
+                        href={`/portal/client/matters/${m.id}`}
+                        prefetch={true}
+                        className="block rounded-xl border border-slate-200 bg-slate-50 p-4 shadow-sm transition hover:bg-slate-100"
+                      >
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-slate-900 truncate">
+                              {m.title}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Matter #{m.id} • {m.created_at ? fmtDateShort(m.created_at) : "—"}
+                            </p>
+                          </div>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${statusBadgeClass(
+                              m.status
+                            )}`}
                           >
-                            <div>
-                              <p className="font-medium text-slate-900">
-                                {m.title}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                Matter #{m.id} • {m.created_at ? fmtDateShort(m.created_at) : "—"}
-                              </p>
-                            </div>
-                            <span
-                              className={`text-xs px-3 py-1 rounded-full font-medium whitespace-nowrap ${statusBadgeClass(
-                                m.status
-                              )}`}
-                            >
-                              {normalizeStatus(m.status)}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="pointer-events-none mt-2 h-6 bg-gradient-to-b from-transparent to-white" />
-                  </>
+                            {normalizeStatus(m.status)}
+                          </span>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
                 )}
               </div>
-            </div>
+            </section>
 
             {/* Messages */}
-            <div className="rounded-2xl bg-white shadow-xl border p-6">
-              <h2 className="text-lg font-semibold text-slate-900">
-                Secure Messages
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Communicate securely with your legal team.
-              </p>
-              <button
-                className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-                onClick={() => alert("Messaging coming soon")}
-                type="button"
-              >
-                Open Inbox
-              </button>
-            </div>
+            <section className="rounded-2xl border bg-white shadow-xl p-6">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Secure Messages</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Communicate securely with your legal team.
+                </p>
+              </div>
+              <div className="mt-6 space-y-4">
+                <button
+                  className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                  onClick={() => alert("Messaging coming soon")}
+                  type="button"
+                >
+                  Open Inbox
+                </button>
+              </div>
+            </section>
           </div>
 
           {/* Side column */}
