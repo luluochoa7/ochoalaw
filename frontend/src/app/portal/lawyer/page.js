@@ -16,9 +16,9 @@ import {
 
 function Stat({ label, value, sub }) {
   return (
-    <div className="rounded-2xl border bg-white p-5 shadow-xl">
+    <div className="rounded-2xl border bg-white p-6 shadow-xl">
       <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-3 text-3xl font-semibold text-slate-900">{value}</p>
       {sub && <p className="mt-1 text-xs text-slate-400">{sub}</p>}
     </div>
   );
@@ -276,11 +276,11 @@ function DocumentsPanel({ matters, loadingMatters }) {
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-sm text-slate-600 leading-6">
         Upload files into the selected matter and open or download them.
       </p>
 
-      <div className="mt-6 space-y-5">
+      <div className="mt-6 space-y-6">
         <div className="space-y-3">
           <input
             id="lawyer-doc-upload-input"
@@ -635,15 +635,15 @@ export default function LawyerDashboardPage() {
     <>
       {/* Header */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto max-w-7xl px-4 py-16">
           <div className="max-w-3xl">
-            <h1 className="text-3xl md:text-4xl font-semibold text-white">
+            <h1 className="text-4xl font-semibold text-white">
               Firm Dashboard
             </h1>
-            <p className="mt-3 text-base text-slate-300">
+            <p className="mt-4 max-w-2xl text-base text-slate-300 leading-6">
               Track matters, intake, billing, and today’s schedule.
             </p>
-            <div className="mt-4 flex items-center gap-3 flex-wrap">
+            <div className="mt-6 flex items-center gap-3 flex-wrap">
               <button
                 className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
                 type="button"
@@ -672,7 +672,7 @@ export default function LawyerDashboardPage() {
 
       {/* Content */}
       <section className="-mt-8 pb-16">
-        <div className="container mx-auto px-4 space-y-6">
+        <div className="container mx-auto max-w-7xl px-4 space-y-6">
           {pageError && (
             <div className="rounded-xl border bg-white p-4 text-sm text-red-600">
               {pageError}
@@ -697,7 +697,7 @@ export default function LawyerDashboardPage() {
               <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Recent Matters</h2>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-slate-600 leading-6">
                     Review recent activity and jump into any matter quickly.
                   </p>
                 </div>
@@ -727,7 +727,7 @@ export default function LawyerDashboardPage() {
                     No matters yet. Click <span className="font-medium">Create new</span> to add one.
                   </div>
                 ) : (
-                  <div className="max-h-[320px] overflow-y-auto space-y-3 pr-1">
+                  <div className="max-h-[340px] overflow-y-auto space-y-3 pr-1">
                     {matters.map((m) => (
                       <Link
                         key={m.id}
@@ -765,7 +765,7 @@ export default function LawyerDashboardPage() {
               <section className="rounded-2xl border bg-white shadow-xl p-6">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Today</h2>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-slate-600 leading-6">
                     Calendar and scheduling tools will appear here.
                   </p>
                 </div>
@@ -783,7 +783,7 @@ export default function LawyerDashboardPage() {
               <section className="rounded-2xl border bg-white shadow-xl p-6">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Intake & Inbox</h2>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="mt-2 text-sm text-slate-600 leading-6">
                     Review new contact submissions and secure client messages.
                   </p>
                 </div>

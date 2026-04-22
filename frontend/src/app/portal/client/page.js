@@ -268,11 +268,11 @@ function DocumentsPanel({ matters, loadingMatters }) {
         </div>
       </div>
 
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-sm text-slate-600 leading-6">
         Upload files into the selected matter and open or download them.
       </p>
 
-      <div className="mt-6 space-y-5">
+      <div className="mt-6 space-y-6">
         <div className="space-y-3">
           <input
             id="client-doc-upload-input"
@@ -504,9 +504,9 @@ export default function ClientDashboardPage() {
     <>
       {/* Header */}
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
-        <div className="container mx-auto px-4 py-12 text-center">
-          <h1 className="text-3xl font-semibold text-white">Your Client Portal</h1>
-          <p className="mt-3 text-base text-slate-300">
+        <div className="container mx-auto max-w-7xl px-4 py-16 text-center">
+          <h1 className="text-4xl font-semibold text-white">Your Client Portal</h1>
+          <p className="mt-4 text-base text-slate-300 leading-6">
             Everything related to your legal matters — in one secure place.
           </p>
         </div>
@@ -514,7 +514,7 @@ export default function ClientDashboardPage() {
 
       {/* Content */}
       <section className="-mt-8 pb-16">
-        <div className="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="container mx-auto max-w-7xl px-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {pageError && (
             <div className="lg:col-span-3 rounded-xl border bg-white p-4 text-sm text-red-600">
               {pageError}
@@ -527,7 +527,7 @@ export default function ClientDashboardPage() {
             <section className="rounded-2xl border bg-white shadow-xl p-6">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Your Matters</h2>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-2 text-sm text-slate-600 leading-6">
                   Review updates and open each matter workspace quickly.
                 </p>
               </div>
@@ -546,7 +546,7 @@ export default function ClientDashboardPage() {
                     You don’t have any active matters yet.
                   </div>
                 ) : (
-                  <div className="max-h-[320px] overflow-y-auto space-y-3 pr-1">
+                  <div className="max-h-[340px] overflow-y-auto space-y-3 pr-1">
                     {matters.map((m) => (
                       <Link
                         key={m.id}
@@ -582,7 +582,7 @@ export default function ClientDashboardPage() {
             <section className="rounded-2xl border bg-white shadow-xl p-6">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Secure Messages</h2>
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-2 text-sm text-slate-600 leading-6">
                   Communicate securely with your legal team.
                 </p>
               </div>
