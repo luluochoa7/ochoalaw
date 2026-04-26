@@ -128,7 +128,7 @@ export default function LawyerMatterDetailPage({ params }) {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [documentsError, setDocumentsError] = useState("");
-  const messagesEndRef = useRef(null);
+  const messagesListRef = useRef(null);
 
   async function ensureDocumentLinks(doc, forceRefresh = false) {
     if (!doc?.id) throw new Error("Invalid document");
@@ -354,8 +354,8 @@ export default function LawyerMatterDetailPage({ params }) {
   }, [docs, selectedDocument]);
 
   useEffect(() => {
-    if (!messagesLoading && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (!messagesLoading && messagesListRef.current) {
+      messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight;
     }
   }, [messages, messagesLoading]);
 
@@ -867,7 +867,7 @@ export default function LawyerMatterDetailPage({ params }) {
         </div>
 
         <div className="mt-6 flex h-[460px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div ref={messagesListRef} className="flex-1 overflow-y-auto p-4 space-y-3">
             {messagesLoading ? (
               <p className="text-sm text-slate-600">Loading messages...</p>
             ) : messagesError && !messages.length ? (
@@ -917,7 +917,6 @@ export default function LawyerMatterDetailPage({ params }) {
                 No messages yet. Start the secure conversation for this matter.
               </div>
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-3">
