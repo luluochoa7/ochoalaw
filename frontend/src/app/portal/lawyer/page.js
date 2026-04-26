@@ -785,17 +785,16 @@ export default function LawyerDashboardPage() {
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Intake & Inbox</h2>
                   <p className="mt-2 text-sm text-slate-600 leading-6">
-                    Review new contact submissions and secure client messages.
+                    Review recent secure conversations and client communication across matters.
                   </p>
                 </div>
                 <div className="mt-6 space-y-4">
-                  <button
-                    className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
-                    type="button"
-                    onClick={() => alert("Inbox coming soon.")}
+                  <Link
+                    href="/portal/lawyer/inbox"
+                    className="inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
                   >
                     Go to inbox
-                  </button>
+                  </Link>
                 </div>
               </section>
             </div>

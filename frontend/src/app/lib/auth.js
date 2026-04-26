@@ -209,6 +209,16 @@ export async function fetchMyMatters() {
   return res.json();
 }
 
+export async function fetchLawyerInbox() {
+  const res = await authFetch("/lawyer/inbox");
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchLawyerInbox failed:", res.status, txt);
+    throw new Error("Failed to load inbox");
+  }
+  return res.json();
+}
+
 export async function fetchMatter(matterId) {
   const res = await authFetch(`/matters/${matterId}`);
   if (!res.ok) {

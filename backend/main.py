@@ -798,6 +798,61 @@ def get_lawyer_matters(user: User = Depends(get_current_user), db: Session = Dep
         for m in matters
     ]
 
+
+@app.get("/lawyer/inbox")
+def get_lawyer_inbox(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Only lawyers can access inbox")
+
+    matters = (
+        db.query(Matter)
+        .options(joinedload(Matter.client))
+        .filter(Matter.lawyer_id == user.id)
+        .order_by(Matter.created_at.desc())
+        .all()
+    )
+
+    inbox_items = []
+    for matter in matters:
+        latest_message = (
+            db.query(MatterMessage)
+            .options(joinedload(MatterMessage.sender))
+            .filter(MatterMessage.matter_id == matter.id)
+            .order_by(MatterMessage.created_at.desc())
+            .first()
+        )
+        if not latest_message:
+            continue
+
+        inbox_items.append(
+            {
+                "matter_id": matter.id,
+                "matter_title": matter.title,
+                "matter_status": matter.status,
+                "client_id": matter.client_id,
+                "client_name": matter.client.name if matter.client else None,
+                "latest_message_id": latest_message.id,
+                "latest_message_body": latest_message.body,
+                "latest_message_sender_id": latest_message.sender_id,
+                "latest_message_sender_name": latest_message.sender.name
+                if latest_message.sender
+                else None,
+                "latest_message_sender_role": latest_message.sender.role
+                if latest_message.sender
+                else None,
+                "latest_message_created_at": latest_message.created_at.isoformat()
+                if latest_message.created_at
+                else None,
+            }
+        )
+
+    inbox_items.sort(
+        key=lambda item: item["latest_message_created_at"] or "",
+        reverse=True,
+    )
+    return inbox_items
+
+
 # (Recommended) one unified endpoint: returns matters for current user based on role
 @app.get("/matters")
 def get_my_matters(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
