@@ -15,6 +15,7 @@ export default function InboxConversationView({
   onMessageChange,
   onSendMessage,
   sendingMessage,
+  onBackToConversations,
 }) {
   const messagesListRef = useRef(null);
   const inputRef = useRef(null);
@@ -27,7 +28,7 @@ export default function InboxConversationView({
 
   if (!conversation) {
     return (
-      <section className="flex h-[700px] flex-col rounded-2xl border bg-white p-6 shadow-xl">
+      <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col rounded-2xl border bg-white p-4 shadow-xl sm:p-6 lg:h-[700px]">
         <div className="flex flex-1 items-center justify-center">
           <InboxEmptyState
             title="Select a conversation."
@@ -39,8 +40,15 @@ export default function InboxConversationView({
   }
 
   return (
-    <section className="flex h-[700px] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl">
-      <div className="border-b border-slate-200 p-6">
+    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl lg:h-[700px]">
+      <div className="border-b border-slate-200 p-4 sm:p-6">
+        <button
+          type="button"
+          onClick={onBackToConversations}
+          className="mb-4 inline-flex rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:hidden"
+        >
+          Back to conversations
+        </button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">

@@ -47,6 +47,7 @@ export default function LawyerInboxPage() {
     () => items.find((item) => item.matter_id === selectedMatterId) || null,
     [items, selectedMatterId]
   );
+  const hasSelectedConversation = Boolean(selectedConversation);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +138,12 @@ export default function LawyerInboxPage() {
     setMessagesError("");
   }
 
+  function handleBackToConversations() {
+    setSelectedMatterId(null);
+    setNewMessage("");
+    setMessagesError("");
+  }
+
   async function handleSendMessage(e) {
     e.preventDefault();
     if (sendingMessage || !selectedMatterId) return;
@@ -179,7 +186,7 @@ export default function LawyerInboxPage() {
   return (
     <main className="min-h-screen bg-slate-100">
       <section className="bg-slate-950">
-        <div className="mx-auto max-w-7xl px-6 py-14">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
           <Link
             href="/portal/lawyer"
             className="text-sm text-blue-200 hover:text-white"
@@ -193,9 +200,13 @@ export default function LawyerInboxPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-8">
+      <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-4">
+          <div
+            className={`lg:col-span-4 ${
+              hasSelectedConversation ? "hidden lg:block" : "block"
+            }`}
+          >
             <InboxConversationList
               items={items}
               loading={inboxLoading}
@@ -205,7 +216,11 @@ export default function LawyerInboxPage() {
             />
           </div>
 
-          <div className="lg:col-span-8">
+          <div
+            className={`lg:col-span-8 ${
+              hasSelectedConversation ? "block" : "hidden lg:block"
+            }`}
+          >
             <InboxConversationView
               conversation={selectedConversation}
               messages={messages}
@@ -216,6 +231,7 @@ export default function LawyerInboxPage() {
               onMessageChange={setNewMessage}
               onSendMessage={handleSendMessage}
               sendingMessage={sendingMessage}
+              onBackToConversations={handleBackToConversations}
             />
           </div>
         </div>
