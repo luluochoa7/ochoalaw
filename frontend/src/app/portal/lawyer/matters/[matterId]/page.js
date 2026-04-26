@@ -24,6 +24,7 @@ const ALLOWED_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "image/jpeg",
   "image/png",
+  "image/webp",
 ];
 
 function formatDateTime(iso) {
@@ -224,7 +225,7 @@ export default function LawyerMatterDetailPage({ params }) {
       }
 
       try {
-        const me = await fetchMe();
+        const me = await fetchMe(true);
         if (!me || me.role !== "lawyer") {
           router.push("/portal");
           return;
@@ -594,7 +595,7 @@ export default function LawyerMatterDetailPage({ params }) {
               <input
                 id="lawyer-workspace-upload-input"
                 type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
                 onChange={(e) => {
                   const f = e.target.files?.[0] ?? null;
                   setDocumentsError("");

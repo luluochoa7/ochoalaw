@@ -6,7 +6,6 @@ import {
   acceptInvitation,
   fetchInvitation,
   notifyAuthChanged,
-  saveToken,
 } from "../../lib/auth";
 
 function fmtDateTime(iso) {
@@ -88,11 +87,6 @@ function AcceptInviteContent() {
     setSubmitLoading(true);
     try {
       const data = await acceptInvitation(token, pw);
-      if (!data?.access_token) {
-        throw new Error("Invitation accepted but no access token was returned.");
-      }
-
-      saveToken(data.access_token);
       notifyAuthChanged(data?.user || null);
       router.push("/portal/client");
     } catch (e) {

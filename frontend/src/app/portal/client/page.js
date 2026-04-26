@@ -85,6 +85,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "image/jpeg",
     "image/png",
+    "image/webp",
   ];
 
   function fmtDateTime(iso) {
@@ -277,7 +278,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
           <input
             id="client-doc-upload-input"
             type="file"
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,image/webp"
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
               setErr("");
@@ -455,7 +456,7 @@ export default function ClientDashboardPage() {
 
       try {
         const [meResult, mattersResult] = await Promise.allSettled([
-          fetchMe(),
+          fetchMe(true),
           fetchMyMatters(),
         ]);
 

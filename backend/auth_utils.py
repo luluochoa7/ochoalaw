@@ -1,15 +1,18 @@
-# backend/auth_utils.py
+"""Authentication and token helpers."""
+
+import hashlib
 import os
-from datetime import datetime, timedelta
+import secrets
+from datetime import datetime, timedelta, timezone
 
 from passlib.context import CryptContext
 import jwt
 from fastapi import HTTPException, status
 
-# Use a strong default, but prefer environment variable in production
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")  # set this in Render later
-JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+SECRET_KEY = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET", "dev-secret")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_MINUTES = int(os.getenv("ACCESS_TOKEN_MINUTES", "15"))
+REFRESH_TOKEN_DAYS = int(os.getenv("REFRESH_TOKEN_DAYS", "14"))
 
 # IMPORTANT: use pbkdf2_sha256 instead of bcrypt to avoid backend issues
 pwd_context = CryptContext(
@@ -36,12 +39,12 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     `data` should be a dict with at least a "sub" (subject/user id).
     """
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta if expires_delta is not None
-        else timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        else timedelta(minutes=ACCESS_TOKEN_MINUTES)
     )
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    to_encode.update({"exp": expire, "typ": "access"})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
 def decode_access_token(token: str) -> dict:
@@ -49,7 +52,7 @@ def decode_access_token(token: str) -> dict:
     Decode and verify a JWT. Raises HTTPException if invalid or expired.
     """
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -61,3 +64,19 @@ def decode_access_token(token: str) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
+
+
+def create_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def get_refresh_expiry() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_DAYS)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def create_csrf_token() -> str:
+    return secrets.token_urlsafe(32)

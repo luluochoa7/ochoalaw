@@ -13,7 +13,7 @@ export default function RequireAuth({ children }) {
 
     (async () => {
       try {
-        await fetchMe();
+        await fetchMe(true);
         if (!cancelled) setChecking(false);
       } catch (err) {
         console.error("Auth check failed", err);

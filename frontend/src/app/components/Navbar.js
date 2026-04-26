@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  getToken,
-  clearToken,
   fetchMe,
+  logout,
   AUTH_CHANGED_EVENT,
 } from "../lib/auth";
 
@@ -15,6 +14,7 @@ export default function Navbar() {
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     let ignore = false;
@@ -22,16 +22,7 @@ export default function Navbar() {
     async function loadUser(withLoading = true) {
       if (!ignore && withLoading) setLoadingUser(true);
       try {
-        const token = getToken();
-        if (!token) {
-          if (!ignore) {
-            setUser(null);
-            setLoadingUser(false);
-          }
-          return;
-        }
-
-        const me = await fetchMe();
+        const me = await fetchMe(pathname?.startsWith("/portal/"));
         if (!ignore) {
           setUser(me);
         }
@@ -49,9 +40,8 @@ export default function Navbar() {
     loadUser(true);
 
     function handleAuthChange(event) {
-      const nextUser = event?.detail?.user;
-      if (nextUser) {
-        setUser(nextUser);
+      if (event?.detail && Object.prototype.hasOwnProperty.call(event.detail, "user")) {
+        setUser(event.detail.user || null);
         setLoadingUser(false);
         return;
       }
@@ -59,17 +49,15 @@ export default function Navbar() {
     }
 
     window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
-    window.addEventListener("storage", handleAuthChange);
 
     return () => {
       ignore = true;
       window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChange);
-      window.removeEventListener("storage", handleAuthChange);
     };
-  }, []);
+  }, [pathname]);
 
-  const handleLogout = () => {
-    clearToken();
+  const handleLogout = async () => {
+    await logout();
     setUser(null);
     router.push("/portal"); // redirect to login screen
   };

@@ -1,7 +1,11 @@
 // src/lib/auth.js
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:10000";
-const TOKEN_KEY = "access_token";
+const CSRF_COOKIE_NAME = "ocl_csrf";
 export const AUTH_CHANGED_EVENT = "auth-changed";
+
+let refreshInFlight = null;
+let meInFlight = null;
+let meCache = null;
 
 function emitAuthChanged(user = null) {
   if (typeof window === "undefined") return;
@@ -9,43 +13,81 @@ function emitAuthChanged(user = null) {
 }
 
 export function notifyAuthChanged(user = null) {
+  meCache = user;
   emitAuthChanged(user);
 }
 
-// Store token in localStorage (MVP – later we can move to HttpOnly cookies)
-export function saveToken(token) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(TOKEN_KEY, token);
-  emitAuthChanged();
+function getCookie(name) {
+  if (typeof document === "undefined") return "";
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return decodeURIComponent(parts.pop().split(";").shift() || "");
+  }
+  return "";
 }
 
-export function getToken() {
-  if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+function getCsrfToken() {
+  return getCookie(CSRF_COOKIE_NAME);
 }
 
-export function clearToken() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(TOKEN_KEY);
-  emitAuthChanged();
+async function refreshSessionOnce() {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = fetch(`${API}/auth/refresh`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "X-CSRF-Token": getCsrfToken(),
+    },
+  })
+    .then((res) => res.ok)
+    .catch(() => false)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
 }
 
-// Fetch helper that auto-attaches Authorization header
-export async function authFetch(path, init = {}) {
-  const token = getToken();
-  const headers = new Headers(init.headers || {});
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  return fetch(`${API}${path}`, { ...init, headers });
+export async function authFetch(path, options = {}, retry = true) {
+  const method = (options.method || "GET").toUpperCase();
+  const headers = new Headers(options.headers || {});
+
+  if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers.set("X-CSRF-Token", csrfToken);
+    }
+  }
+
+  const res = await fetch(`${API}${path}`, {
+    ...options,
+    method,
+    headers,
+    credentials: "include",
+  });
+
+  if (res.status === 401 && retry) {
+    const refreshed = await refreshSessionOnce();
+    if (refreshed) {
+      return authFetch(path, options, false);
+    }
+  }
+
+  return res;
 }
 
 // --- AUTH HELPERS --- //
 
-// Call FastAPI /login, then save token
 export async function loginWithEmail(email, password) {
-  const res = await fetch(`${API}/login`, {
+  const res = await fetch(`${API}/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ email, password }),
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email, password }),
   });
 
   if (!res.ok) {
@@ -55,12 +97,24 @@ export async function loginWithEmail(email, password) {
   }
 
   const data = await res.json();
-  if (!data?.access_token) {
-    throw new Error("Login failed: no token returned.");
+  if (data?.user) {
+    notifyAuthChanged(data.user);
   }
+  return data;
+}
 
-  saveToken(data.access_token);
-  return data.access_token;
+export async function logout() {
+  const res = await authFetch(
+    "/auth/logout",
+    {
+      method: "POST",
+    },
+    false
+  );
+  meCache = null;
+  meInFlight = null;
+  notifyAuthChanged(null);
+  return res.ok;
 }
 
 // Call FastAPI /signup to create a new user
@@ -110,15 +164,38 @@ export async function submitContactForm({ name, email, phone, message }) {
   return res.json();
 }
 
-// Call FastAPI /profile to get user + role
-export async function fetchMe() {
-  const res = await authFetch("/profile"); // IMPORTANT: match backend route
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    console.error("fetchMe failed:", res.status, txt);
-    throw new Error("Not authenticated");
-  }
-  return res.json(); // { email, role }
+export async function fetchMe(retry = false) {
+  if (meCache) return meCache;
+  if (meInFlight) return meInFlight;
+
+  meInFlight = fetch(`${API}/auth/me`, {
+    method: "GET",
+    credentials: "include",
+  })
+    .then(async (res) => {
+      if (res.status === 401 && retry) {
+        const refreshed = await refreshSessionOnce();
+        if (refreshed) {
+          meInFlight = null;
+          return fetchMe(false);
+        }
+      }
+      if (!res.ok) {
+        meCache = null;
+        throw new Error("Not authenticated");
+      }
+      meCache = await res.json();
+      return meCache;
+    })
+    .catch((err) => {
+      meCache = null;
+      throw err;
+    })
+    .finally(() => {
+      meInFlight = null;
+    });
+
+  return meInFlight;
 }
 
 // Unified: fetch matters for current user based on role (backend handles it)
@@ -232,6 +309,7 @@ export async function fetchInvitation(token) {
 export async function acceptInvitation(token, password) {
   const res = await fetch(`${API}/invitations/accept`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, password }),
   });
@@ -251,7 +329,11 @@ export async function acceptInvitation(token, password) {
     throw new Error(detail);
   }
 
-  return res.json();
+  const data = await res.json();
+  if (data?.user) {
+    notifyAuthChanged(data.user);
+  }
+  return data;
 }
 
 export async function requestPasswordReset(email) {
@@ -308,11 +390,15 @@ export async function confirmPasswordReset(token, password) {
 
 // --- DOCUMENT UPLOAD FLOW --- //
 
-export async function presignMatterUpload(matterId, fileName, contentType) {
+export async function presignMatterUpload(matterId, fileName, contentType, fileSize) {
   const res = await authFetch(`/matters/${matterId}/uploads/presign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ file_name: fileName, content_type: contentType }),
+    body: JSON.stringify({
+      file_name: fileName,
+      content_type: contentType,
+      file_size: fileSize,
+    }),
   });
 
   if (!res.ok) {
@@ -441,14 +527,13 @@ export async function uploadMatterFile(matterId, file) {
   const fileName = file.name;
   const contentType = file.type || "application/octet-stream";
 
-  // presign
   const { upload_url, object_key } = await presignMatterUpload(
     matterId,
     fileName,
-    contentType
+    contentType,
+    file.size
   );
 
-  // upload to S3 (direct from browser)
   const putRes = await fetch(upload_url, {
     method: "PUT",
     headers: {
@@ -463,7 +548,6 @@ export async function uploadMatterFile(matterId, file) {
     throw new Error("Upload to S3 failed.");
   }
 
-  // create DB record
   return completeMatterUpload(matterId, fileName, object_key);
 }
 

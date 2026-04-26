@@ -2,17 +2,23 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 from typing import Optional
+import hmac
+import json
+import os
+import re
+import time
+from uuid import uuid4
 
 from fastapi import FastAPI, Form, Depends, HTTPException, status, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, StreamingResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, or_
 
 from database import SessionLocal, engine
 from models import (
     Base,
+    AuditEvent,
     ClientInvitation,
     ContactSubmission,
     Document,
@@ -22,37 +28,65 @@ from models import (
     MatterNote,
     PasswordResetToken,
     User,
+    UserSession,
 )
 from email_service import send_transactional_email
 
-from auth_utils import hash_password, verify_password, create_access_token, decode_access_token
+from auth_utils import (
+    ACCESS_TOKEN_MINUTES,
+    REFRESH_TOKEN_DAYS,
+    create_access_token,
+    create_csrf_token,
+    create_refresh_token,
+    decode_access_token,
+    get_refresh_expiry,
+    hash_password,
+    hash_token,
+    verify_password,
+)
 
 from pydantic import BaseModel
-
-import os
-from uuid import uuid4
 
 import boto3
 
 
 ALLOWED_ORIGINS = [
-    "https://ochoalaw.vercel.app", 
-    "http://localhost:3000",
-    "https://ochoalawyers.com",
-    "https://www.ochoalawyers.com"
-    ]
+    origin.strip()
+    for origin in os.getenv(
+        "ALLOWED_ORIGINS",
+        "https://ochoalawyers.com,https://www.ochoalawyers.com,http://localhost:3000",
+    ).split(",")
+    if origin.strip()
+]
+
+ACCESS_COOKIE_NAME = "ocl_access"
+REFRESH_COOKIE_NAME = "ocl_refresh"
+CSRF_COOKIE_NAME = "ocl_csrf"
+CSRF_HEADER_NAME = "x-csrf-token"
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
+COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", ".ochoalawyers.com").strip() or None
+COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB FILE SIZE LIMIT
 
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_CONTENT_TYPES = {
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "image/jpeg",
     "image/png",
+    "image/webp",
 }
 
-DISALLOWED_EXTENSIONS = {".exe", ".bat", ".sh", ".js"}
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMITS = {
+    "auth_login": (10, RATE_LIMIT_WINDOW_SECONDS),
+    "password_reset": (5, RATE_LIMIT_WINDOW_SECONDS),
+    "upload_presign": (30, RATE_LIMIT_WINDOW_SECONDS),
+    "invite": (20, RATE_LIMIT_WINDOW_SECONDS),
+}
+rate_limit_store: dict[str, list[float]] = {}
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
@@ -78,6 +112,185 @@ def get_db():
     finally:
         db.close()
 
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def datetime_is_past(value: datetime | None) -> bool:
+    if value is None:
+        return False
+    now = utc_now()
+    if value.tzinfo is None:
+        return value < now.replace(tzinfo=None)
+    return value < now
+
+
+def set_auth_cookies(response, access_token: str, refresh_token: str, csrf_token: str):
+    cookie_common = {
+        "secure": COOKIE_SECURE,
+        "samesite": COOKIE_SAMESITE,
+        "domain": COOKIE_DOMAIN,
+        "path": "/",
+    }
+    response.set_cookie(
+        key=ACCESS_COOKIE_NAME,
+        value=access_token,
+        httponly=True,
+        max_age=60 * ACCESS_TOKEN_MINUTES,
+        **cookie_common,
+    )
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        httponly=True,
+        max_age=60 * 60 * 24 * REFRESH_TOKEN_DAYS,
+        **cookie_common,
+    )
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        httponly=False,
+        max_age=60 * 60 * 24 * REFRESH_TOKEN_DAYS,
+        **cookie_common,
+    )
+
+
+def clear_auth_cookies(response):
+    for name in [ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, CSRF_COOKIE_NAME]:
+        response.delete_cookie(
+            key=name,
+            domain=COOKIE_DOMAIN,
+            path="/",
+        )
+
+
+def create_session_for_user(user: User, request: Request, db: Session):
+    refresh_token = create_refresh_token()
+    csrf_token = create_csrf_token()
+    session = UserSession(
+        user_id=user.id,
+        refresh_token_hash=hash_token(refresh_token),
+        csrf_token_hash=hash_token(csrf_token),
+        user_agent=request.headers.get("user-agent"),
+        ip_address=request.client.host if request.client else None,
+        expires_at=get_refresh_expiry(),
+    )
+    db.add(session)
+    return refresh_token, csrf_token, session
+
+
+def build_access_token_for_user(user: User) -> str:
+    return create_access_token(
+        {
+            "sub": str(user.id),
+            "email": user.email,
+            "role": user.role,
+        }
+    )
+
+
+def user_payload(user: User) -> dict:
+    return {
+        "id": user.id,
+        "email": user.email,
+        "role": user.role,
+        "name": user.name,
+    }
+
+
+def log_audit_event(
+    db: Session,
+    event_type: str,
+    user_id: int | None = None,
+    resource_type: str | None = None,
+    resource_id: str | None = None,
+    request: Request | None = None,
+    metadata: dict | None = None,
+):
+    event = AuditEvent(
+        user_id=user_id,
+        event_type=event_type,
+        resource_type=resource_type,
+        resource_id=str(resource_id) if resource_id is not None else None,
+        ip_address=request.client.host if request and request.client else None,
+        user_agent=request.headers.get("user-agent") if request else None,
+        metadata_json=json.dumps(metadata or {}),
+    )
+    db.add(event)
+    return event
+
+
+def get_rate_limit_key(request: Request, bucket: str) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    ip = forwarded.split(",")[0].strip() if forwarded else None
+    if not ip and request.client:
+        ip = request.client.host
+    return f"{bucket}:{ip or 'unknown'}"
+
+
+def enforce_rate_limit(request: Request, bucket: str):
+    limit, window = RATE_LIMITS[bucket]
+    key = get_rate_limit_key(request, bucket)
+    now = time.time()
+    recent = [ts for ts in rate_limit_store.get(key, []) if now - ts < window]
+    if len(recent) >= limit:
+        raise HTTPException(status_code=429, detail="Too many requests. Please try again soon.")
+    recent.append(now)
+    rate_limit_store[key] = recent
+
+
+def get_csrf_from_request(request: Request):
+    return request.headers.get(CSRF_HEADER_NAME)
+
+
+def verify_csrf_token(request: Request, session: UserSession):
+    csrf_header = get_csrf_from_request(request)
+    if not csrf_header:
+        raise HTTPException(status_code=403, detail="Missing CSRF token")
+    if not session.csrf_token_hash:
+        raise HTTPException(status_code=403, detail="Missing CSRF session")
+    if not hmac.compare_digest(hash_token(csrf_header), session.csrf_token_hash):
+        raise HTTPException(status_code=403, detail="Invalid CSRF token")
+
+
+def get_session_from_refresh_cookie(request: Request, db: Session) -> UserSession:
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="Missing refresh token")
+
+    session = (
+        db.query(UserSession)
+        .filter(UserSession.refresh_token_hash == hash_token(refresh_token))
+        .first()
+    )
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    if session.revoked_at is not None:
+        raise HTTPException(status_code=401, detail="Session revoked")
+    if datetime_is_past(session.expires_at):
+        raise HTTPException(status_code=401, detail="Session expired")
+    return session
+
+
+def sanitize_filename(filename: str) -> str:
+    basename = os.path.basename(filename or "").strip()
+    basename = re.sub(r"[^A-Za-z0-9._ -]+", "_", basename)
+    basename = re.sub(r"\s+", "_", basename).strip("._- ")
+    return basename[:180] or "document"
+
+
+def validate_document_file(file_name: str, content_type: str | None, file_size: int | None = None):
+    safe_name = sanitize_filename(file_name)
+    ext = os.path.splitext(safe_name)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="File type not allowed")
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+    if file_size is not None and file_size > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(status_code=400, detail="File must be under 25MB")
+    return safe_name
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
@@ -92,6 +305,60 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
     )
+
+
+CSRF_EXEMPT_PATHS = {
+    "/auth/login",
+    "/login",
+    "/signup",
+    "/contact",
+    "/invitations/accept",
+    "/password-reset/request",
+    "/password-reset/confirm",
+}
+
+
+@app.middleware("http")
+async def csrf_middleware(request: Request, call_next):
+    if request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}:
+        path = request.url.path.rstrip("/") or "/"
+        if path not in CSRF_EXEMPT_PATHS:
+            db = SessionLocal()
+            try:
+                session = get_session_from_refresh_cookie(request, db)
+                verify_csrf_token(request, session)
+            except HTTPException as exc:
+                log_audit_event(
+                    db,
+                    "csrf_failure",
+                    request=request,
+                    metadata={"path": request.url.path, "status_code": exc.status_code},
+                )
+                db.commit()
+                return JSONResponse(
+                    status_code=exc.status_code,
+                    content={"detail": exc.detail},
+                )
+            finally:
+                db.close()
+
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    if request.url.path.startswith("/documents/") and request.url.path.endswith("/content"):
+        response.headers["Content-Security-Policy"] = (
+            "frame-ancestors 'self' https://ochoalawyers.com https://www.ochoalawyers.com"
+        )
+    else:
+        response.headers["X-Frame-Options"] = "DENY"
+    if COOKIE_SECURE:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 @app.get("/")
 def root():
@@ -201,41 +468,72 @@ def signup(
 
     return {"message": "User created successfully", "user_id": user.id}
 
-# login
-@app.post("/login")
-def login(
-    email: str = Form(...),
-    password: str = Form(...),
-    db: Session = Depends(get_db)
-):
-    # FIXED — Correct SQLAlchemy query
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+def issue_login_response(email: str, password: str, request: Request, db: Session):
+    enforce_rate_limit(request, "auth_login")
+
     user = db.query(User).filter(User.email == email.strip().lower()).first()
 
     if not user or not verify_password(password, user.password_hash):
+        log_audit_event(
+            db,
+            "login_failure",
+            request=request,
+            metadata={"email": email.strip().lower()},
+        )
+        db.commit()
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # FIXED — Correct dict for JWT
-    access_token = create_access_token({
-        "sub": str(user.id),
-        "email": user.email,
-        "role": user.role
-    })
+    access_token = build_access_token_for_user(user)
+    refresh_token, csrf_token, _session = create_session_for_user(user, request, db)
+    log_audit_event(db, "login_success", user_id=user.id, request=request)
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    db.commit()
+
+    response = JSONResponse(
+        {
+            "message": "Login successful",
+            "user": user_payload(user),
+        }
+    )
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+    return response
 
 
-security = HTTPBearer(auto_error=False)
+@app.post("/auth/login")
+def auth_login(
+    body: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    return issue_login_response(body.email, body.password, request, db)
+
+
+@app.post("/login")
+def login_alias(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    return issue_login_response(email, password, request, db)
+
+
 def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    request: Request,
     db: Session = Depends(get_db)
 ):
-    # Require a Bearer token
-    if not credentials or credentials.scheme.lower() != "bearer":
+    token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    # Verifies the JWT from the authorization header, loads the current user from the db or raises 401
-    token = credentials.credentials # bearer token
-    payload = decode_access_token(token) # verify signature and expiration
+    payload = decode_access_token(token)
+    if payload.get("typ") != "access":
+        raise HTTPException(status_code=401, detail="Invalid token type")
 
     user_id = payload.get("sub")
     if not user_id:
@@ -246,11 +544,58 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
+def raise_access_denied(
+    db: Session,
+    user: User,
+    request: Request | None,
+    resource_type: str,
+    resource_id: str | int | None,
+):
+    log_audit_event(
+        db,
+        "access_denied",
+        user_id=user.id if user else None,
+        resource_type=resource_type,
+        resource_id=str(resource_id) if resource_id is not None else None,
+        request=request,
+    )
+    db.commit()
+    raise HTTPException(status_code=404, detail=f"{resource_type.title()} not found")
+
+
+def get_accessible_matter(
+    db: Session,
+    user: User,
+    matter_id: int,
+    request: Request | None = None,
+):
+    matter = db.query(Matter).filter(Matter.id == matter_id).first()
+    if not matter:
+        raise HTTPException(status_code=404, detail="Matter not found")
+    if user.role == "lawyer" and matter.lawyer_id == user.id:
+        return matter
+    if user.role == "client" and matter.client_id == user.id:
+        return matter
+    raise_access_denied(db, user, request, "matter", matter_id)
+
+
+def get_accessible_document(
+    db: Session,
+    user: User,
+    document_id: int,
+    request: Request | None = None,
+):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    matter = get_accessible_matter(db, user, doc.matter_id, request=request)
+    return doc, matter
+
+
 # S3 authorization helper
 def assert_can_access_matter(user: User, matter: Matter):
-    # Lawyer or client assigned to this matter can access
     if user.id != matter.client_id and user.id != matter.lawyer_id:
-        raise HTTPException(status_code=403, detail="Not authorized for this matter")
+        raise HTTPException(status_code=404, detail="Matter not found")
 
 
 def assert_can_access_internal_notes(user: User, matter: Matter):
@@ -306,16 +651,7 @@ def _safe_content_disposition(disposition: str, filename: str) -> str:
 
 
 def get_authorized_document_for_user(document_id: int, user: User, db: Session):
-    doc = db.query(Document).filter(Document.id == document_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    matter = db.query(Matter).filter(Matter.id == doc.matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
-    return doc, matter
+    return get_accessible_document(db, user, document_id)
 
 
 def get_valid_document_access_token(token: str, db: Session):
@@ -337,17 +673,68 @@ def get_valid_document_access_token(token: str, db: Session):
 
     return access
 
+@app.get("/auth/me")
+def auth_me(user: User = Depends(get_current_user)):
+    return user_payload(user)
+
+
+@app.post("/auth/refresh")
+def auth_refresh(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    session = get_session_from_refresh_cookie(request, db)
+    user = db.query(User).filter(User.id == session.user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    new_access_token = build_access_token_for_user(user)
+    new_refresh_token = create_refresh_token()
+    new_csrf_token = create_csrf_token()
+
+    session.refresh_token_hash = hash_token(new_refresh_token)
+    session.csrf_token_hash = hash_token(new_csrf_token)
+    session.last_used_at = utc_now()
+    log_audit_event(db, "session_refresh", user_id=user.id, request=request)
+    db.commit()
+
+    response = JSONResponse({"message": "Session refreshed"})
+    set_auth_cookies(response, new_access_token, new_refresh_token, new_csrf_token)
+    return response
+
+
+@app.post("/auth/logout")
+def auth_logout(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    user_id = None
+    if refresh_token:
+        session = (
+            db.query(UserSession)
+            .filter(UserSession.refresh_token_hash == hash_token(refresh_token))
+            .first()
+        )
+        if session and session.revoked_at is None:
+            session.revoked_at = utc_now()
+            user_id = session.user_id
+
+    log_audit_event(db, "logout", user_id=user_id, request=request)
+    db.commit()
+
+    response = JSONResponse({"message": "Logged out"})
+    clear_auth_cookies(response)
+    return response
+
+
 @app.get("/profile")
 def profile(user: User = Depends(get_current_user)):
-    return {
-        "id": user.id,
-        "email": user.email,
-        "role": user.role,
-    }
+    return user_payload(user)
 
 @app.get("/me")
 def me(user: User = Depends(get_current_user)):
-    return {"id": user.id, "email": user.email, "role": user.role}
+    return user_payload(user)
 
 # Get matters for current client
 @app.get("/client/matters")
@@ -507,6 +894,7 @@ class PasswordResetConfirm(BaseModel):
 class PresignUploadRequest(BaseModel):
     file_name: str
     content_type: str
+    file_size: Optional[int] = None
 
 
 class DocumentCompleteRequest(BaseModel):
@@ -556,9 +944,12 @@ def search_clients(
 @app.post("/lawyer/invitations", status_code=201)
 def create_client_invitation(
     body: ClientInviteCreate,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    enforce_rate_limit(request, "invite")
+
     if user.role != "lawyer":
         raise HTTPException(status_code=403, detail="Only lawyers can invite clients")
 
@@ -584,6 +975,16 @@ def create_client_invitation(
     )
 
     db.add(invitation)
+    db.flush()
+    log_audit_event(
+        db,
+        "invitation_sent",
+        user_id=user.id,
+        resource_type="client_invitation",
+        resource_id=invitation.id,
+        request=request,
+        metadata={"email": email},
+    )
     db.commit()
     db.refresh(invitation)
 
@@ -637,6 +1038,7 @@ def get_invitation(token: str, db: Session = Depends(get_db)):
 @app.post("/invitations/accept", status_code=201)
 def accept_client_invitation(
     body: ClientInviteAccept,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     invitation = db.query(ClientInvitation).filter(ClientInvitation.token == body.token).first()
@@ -664,40 +1066,50 @@ def accept_client_invitation(
 
     invitation.accepted_at = datetime.now(timezone.utc)
 
+    access_token = build_access_token_for_user(user)
+    refresh_token, csrf_token, _session = create_session_for_user(user, request, db)
+    log_audit_event(
+        db,
+        "invitation_accepted",
+        user_id=user.id,
+        resource_type="client_invitation",
+        resource_id=invitation.id,
+        request=request,
+    )
+
     db.commit()
     db.refresh(user)
 
-    access_token = create_access_token(
+    response = JSONResponse(
         {
-            "sub": str(user.id),
-            "email": user.email,
-            "role": user.role,
-        }
-    )
-
-    return {
-        "message": "Invitation accepted",
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": {
-            "id": user.id,
-            "email": user.email,
-            "role": user.role,
-            "name": user.name,
+            "message": "Invitation accepted",
+            "user": user_payload(user),
         },
-    }
+        status_code=201,
+    )
+    set_auth_cookies(response, access_token, refresh_token, csrf_token)
+    return response
 
 
 @app.post("/password-reset/request")
 def request_password_reset(
     body: PasswordResetRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
+    enforce_rate_limit(request, "password_reset")
     email = body.email.strip().lower()
 
     # Always return success shape to avoid leaking whether email exists.
     user = db.query(User).filter(User.email == email).first()
     if not user:
+        log_audit_event(
+            db,
+            "password_reset_requested",
+            request=request,
+            metadata={"email": email, "user_found": False},
+        )
+        db.commit()
         return {"message": "If that email exists, a reset link has been sent."}
 
     token = token_urlsafe(32)
@@ -709,6 +1121,13 @@ def request_password_reset(
         expires_at=expires_at,
     )
     db.add(reset_token)
+    log_audit_event(
+        db,
+        "password_reset_requested",
+        user_id=user.id,
+        request=request,
+        metadata={"email": email, "user_found": True},
+    )
     db.commit()
     db.refresh(reset_token)
 
@@ -767,6 +1186,7 @@ def get_password_reset_token(token: str, db: Session = Depends(get_db)):
 @app.post("/password-reset/confirm")
 def confirm_password_reset(
     body: PasswordResetConfirm,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     reset_token = (
@@ -790,6 +1210,7 @@ def confirm_password_reset(
 
     user.password_hash = hash_password(body.password)
     reset_token.used_at = datetime.now(timezone.utc)
+    log_audit_event(db, "password_reset_completed", user_id=user.id, request=request)
 
     db.commit()
 
@@ -850,28 +1271,18 @@ def create_matter(
 def presign_matter_upload(
     matter_id: int,
     body: PresignUploadRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    enforce_rate_limit(request, "upload_presign")
+
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3 bucket is not configured")
 
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
+    get_accessible_matter(db, user, matter_id, request=request)
 
-    assert_can_access_matter(user, matter)
-
-    # File Rules
-    ext = os.path.splitext(body.file_name)[1].lower()
-
-    if ext in DISALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="File Type not allowed")
-    
-    if body.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(status_code=400, detail="Unsupported file type")
-
-    safe_name = body.file_name.replace(" ", "_")
+    safe_name = validate_document_file(body.file_name, body.content_type, body.file_size)
     key = f"{S3_UPLOAD_PREFIX}/matter-{matter_id}/{uuid4()}-{safe_name}"
 
     try:
@@ -894,26 +1305,36 @@ def presign_matter_upload(
 def create_document(
     matter_id: int,
     body: DocumentCompleteRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
+    if not S3_BUCKET_NAME:
+        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
 
-    assert_can_access_matter(user, matter)
+    get_accessible_matter(db, user, matter_id, request=request)
 
     expected_prefix = f"{S3_UPLOAD_PREFIX}/matter-{matter_id}/"
     if not body.object_key.startswith(expected_prefix):
         raise HTTPException(status_code=400, detail="Invalid object_key for this matter")
 
+    safe_name = sanitize_filename(body.file_name)
+    try:
+        object_meta = s3_client.head_object(Bucket=S3_BUCKET_NAME, Key=body.object_key)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Uploaded file could not be verified: {str(e)}")
+
+    content_type = object_meta.get("ContentType") or "application/octet-stream"
+    validate_document_file(safe_name, content_type, object_meta.get("ContentLength"))
+
     doc = Document(
         matter_id=matter_id,
-        filename=body.file_name,
+        filename=safe_name,
         s3_key=body.object_key,
         uploaded_by_id=user.id,
     )
     db.add(doc)
+    db.flush()
 
     create_matter_event(
         db=db,
@@ -921,6 +1342,15 @@ def create_document(
         event_type="document_uploaded",
         message=f"{user.name} uploaded document {doc.filename}.",
         user_id=user.id,
+    )
+    log_audit_event(
+        db,
+        "document_uploaded",
+        user_id=user.id,
+        resource_type="document",
+        resource_id=doc.id,
+        request=request,
+        metadata={"matter_id": matter_id, "filename": doc.filename},
     )
 
     db.commit()
@@ -939,14 +1369,11 @@ def create_document(
 @app.get("/matters/{matter_id}/documents")
 def list_documents(
     matter_id: int,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
+    get_accessible_matter(db, user, matter_id, request=request)
 
     docs = (
         db.query(Document)
@@ -978,42 +1405,24 @@ def create_document_access_links(
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3 bucket is not configured")
 
-    doc, _matter = get_authorized_document_for_user(document_id, user, db)
-
-    token = token_urlsafe(32)
+    doc, _matter = get_accessible_document(db, user, document_id, request=request)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
-
-    access = DocumentAccessToken(
-        document_id=doc.id,
-        user_id=user.id,
-        token=token,
-        expires_at=expires_at,
-    )
-    db.add(access)
-    db.commit()
 
     api_base = os.getenv("API_BASE_URL", "").strip().rstrip("/")
     if not api_base:
         api_base = str(request.base_url).rstrip("/")
 
     return {
-        "content_url": f"{api_base}/documents/access/{token}/content",
-        "download_url": f"{api_base}/documents/access/{token}/download",
+        "content_url": f"{api_base}/documents/{doc.id}/content",
+        "download_url": f"{api_base}/documents/{doc.id}/download",
         "expires_at": expires_at.isoformat(),
         "filename": doc.filename,
     }
 
 
-@app.get("/documents/access/{token}/content")
-def serve_document_content(token: str, db: Session = Depends(get_db)):
+def stream_document_from_s3(doc: Document, disposition: str):
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3 bucket is not configured")
-
-    access = get_valid_document_access_token(token, db)
-
-    doc = access.document
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
 
     try:
         s3_response = s3_client.get_object(
@@ -1029,54 +1438,96 @@ def serve_document_content(token: str, db: Session = Depends(get_db)):
         s3_response["Body"],
         media_type=content_type,
         headers={
-            "Content-Disposition": _safe_content_disposition("inline", doc.filename),
+            "Content-Disposition": _safe_content_disposition(disposition, doc.filename),
             "Cache-Control": "private, max-age=300",
         },
     )
+
+
+@app.get("/documents/{document_id}/content")
+def serve_document_content(
+    document_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    doc, _matter = get_accessible_document(db, user, document_id, request=request)
+    log_audit_event(
+        db,
+        "document_previewed",
+        user_id=user.id,
+        resource_type="document",
+        resource_id=doc.id,
+        request=request,
+    )
+    db.commit()
+    return stream_document_from_s3(doc, "inline")
+
+
+@app.get("/documents/{document_id}/download")
+def serve_document_download(
+    document_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    doc, _matter = get_accessible_document(db, user, document_id, request=request)
+    log_audit_event(
+        db,
+        "document_downloaded",
+        user_id=user.id,
+        resource_type="document",
+        resource_id=doc.id,
+        request=request,
+    )
+    db.commit()
+    return stream_document_from_s3(doc, "attachment")
+
+
+@app.get("/documents/access/{token}/content")
+def serve_legacy_document_content(
+    token: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    access = get_valid_document_access_token(token, db)
+    if access.user_id != user.id:
+        raise_access_denied(db, user, request, "document", access.document_id)
+
+    doc = access.document
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    get_accessible_document(db, user, doc.id, request=request)
+    return stream_document_from_s3(doc, "inline")
 
 
 @app.get("/documents/access/{token}/download")
-def serve_document_download(token: str, db: Session = Depends(get_db)):
-    if not S3_BUCKET_NAME:
-        raise HTTPException(status_code=500, detail="S3 bucket is not configured")
-
+def serve_legacy_document_download(
+    token: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     access = get_valid_document_access_token(token, db)
+    if access.user_id != user.id:
+        raise_access_denied(db, user, request, "document", access.document_id)
 
     doc = access.document
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-
-    try:
-        s3_response = s3_client.get_object(
-            Bucket=S3_BUCKET_NAME,
-            Key=doc.s3_key,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Could not fetch document: {str(e)}")
-
-    content_type = s3_response.get("ContentType") or "application/octet-stream"
-
-    return StreamingResponse(
-        s3_response["Body"],
-        media_type=content_type,
-        headers={
-            "Content-Disposition": _safe_content_disposition("attachment", doc.filename),
-            "Cache-Control": "private, max-age=300",
-        },
-    )
+    get_accessible_document(db, user, doc.id, request=request)
+    return stream_document_from_s3(doc, "attachment")
 
 
 @app.get("/matters/{matter_id}", response_model=MatterOut)
 def get_matter(
     matter_id: int,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
+    matter = get_accessible_matter(db, user, matter_id, request=request)
 
     return {
         "id": matter.id,
@@ -1093,14 +1544,11 @@ def get_matter(
 def update_matter(
     matter_id: int,
     body: MatterUpdate,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
+    matter = get_accessible_matter(db, user, matter_id, request=request)
 
     # MVP rule: only the assigned lawyer can edit matter status/description.
     if user.role != "lawyer" or user.id != matter.lawyer_id:
@@ -1160,14 +1608,11 @@ def update_matter(
 @app.get("/matters/{matter_id}/events", response_model=list[MatterEventOut])
 def list_matter_events(
     matter_id: int,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
+    get_accessible_matter(db, user, matter_id, request=request)
 
     query = (
         db.query(MatterEvent)
@@ -1186,13 +1631,11 @@ def list_matter_events(
 @app.get("/matters/{matter_id}/internal-notes", response_model=list[MatterNoteOut])
 def list_internal_notes(
     matter_id: int,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
+    matter = get_accessible_matter(db, user, matter_id, request=request)
     assert_can_access_internal_notes(user, matter)
 
     notes = (
@@ -1213,13 +1656,11 @@ def list_internal_notes(
 def create_internal_note(
     matter_id: int,
     body: MatterNoteCreate,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
+    matter = get_accessible_matter(db, user, matter_id, request=request)
     assert_can_access_internal_notes(user, matter)
 
     content = body.content.strip()
@@ -1252,14 +1693,11 @@ def create_internal_note(
 @app.get("/matters/{matter_id}/shared-updates", response_model=list[MatterNoteOut])
 def list_shared_updates(
     matter_id: int,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
+    get_accessible_matter(db, user, matter_id, request=request)
 
     notes = (
         db.query(MatterNote)
@@ -1279,14 +1717,11 @@ def list_shared_updates(
 def create_shared_update(
     matter_id: int,
     body: MatterNoteCreate,
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    matter = db.query(Matter).filter(Matter.id == matter_id).first()
-    if not matter:
-        raise HTTPException(status_code=404, detail="Matter not found")
-
-    assert_can_access_matter(user, matter)
+    get_accessible_matter(db, user, matter_id, request=request)
 
     content = body.content.strip()
     if not content:
