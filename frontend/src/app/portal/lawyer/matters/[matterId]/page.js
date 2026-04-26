@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   fetchMe,
@@ -14,6 +14,8 @@ import {
   fetchSharedUpdates,
   createSharedUpdate,
   fetchMatterEvents,
+  fetchMatterMessages,
+  sendMatterMessage,
 } from "../../../../lib/auth";
 
 const STATUS_OPTIONS = ["Open", "In Progress", "Waiting on Client", "Closed"];
@@ -89,6 +91,7 @@ export default function LawyerMatterDetailPage({ params }) {
   const router = useRouter();
   const { matterId } = params;
 
+  const [currentUser, setCurrentUser] = useState(null);
   const [matter, setMatter] = useState(null);
   const [docs, setDocs] = useState([]);
   const [authLoading, setAuthLoading] = useState(true);
@@ -113,6 +116,11 @@ export default function LawyerMatterDetailPage({ params }) {
   const [events, setEvents] = useState([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setMessagesLoading] = useState(true);
+  const [messagesError, setMessagesError] = useState("");
+  const [newMessage, setNewMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [documentLinks, setDocumentLinks] = useState({});
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -120,6 +128,7 @@ export default function LawyerMatterDetailPage({ params }) {
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [documentsError, setDocumentsError] = useState("");
+  const messagesEndRef = useRef(null);
 
   async function ensureDocumentLinks(doc, forceRefresh = false) {
     if (!doc?.id) throw new Error("Invalid document");
@@ -222,14 +231,17 @@ export default function LawyerMatterDetailPage({ params }) {
         setInternalNotesLoading(true);
         setSharedUpdatesLoading(true);
         setEventsLoading(true);
+        setMessagesLoading(true);
       }
 
       try {
         const me = await fetchMe(true);
+        if (cancelled) return;
         if (!me || me.role !== "lawyer") {
           router.push("/portal");
           return;
         }
+        setCurrentUser(me);
 
         const [
           matterResult,
@@ -237,12 +249,14 @@ export default function LawyerMatterDetailPage({ params }) {
           internalResult,
           sharedResult,
           eventsResult,
+          messagesResult,
         ] = await Promise.allSettled([
           fetchMatter(matterId),
           fetchMatterDocuments(matterId),
           fetchInternalNotes(matterId),
           fetchSharedUpdates(matterId),
           fetchMatterEvents(matterId),
+          fetchMatterMessages(matterId),
         ]);
 
         if (cancelled) return;
@@ -296,6 +310,15 @@ export default function LawyerMatterDetailPage({ params }) {
           setEventsError(getErrorMessage(eventsResult.reason, "Failed to load activity."));
         }
         setEventsLoading(false);
+
+        if (messagesResult.status === "fulfilled") {
+          setMessages(Array.isArray(messagesResult.value) ? messagesResult.value : []);
+          setMessagesError("");
+        } else {
+          setMessages([]);
+          setMessagesError(getErrorMessage(messagesResult.reason, "Failed to load messages."));
+        }
+        setMessagesLoading(false);
       } catch (e) {
         if (!cancelled) setPageError(getErrorMessage(e, "Failed to load workspace."));
       } finally {
@@ -306,6 +329,7 @@ export default function LawyerMatterDetailPage({ params }) {
           setInternalNotesLoading(false);
           setSharedUpdatesLoading(false);
           setEventsLoading(false);
+          setMessagesLoading(false);
         }
       }
     }
@@ -328,6 +352,12 @@ export default function LawyerMatterDetailPage({ params }) {
       setSelectedDocument(next);
     }
   }, [docs, selectedDocument]);
+
+  useEffect(() => {
+    if (!messagesLoading && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, messagesLoading]);
 
   async function handleStatusChange(nextStatus) {
     if (!matter) return;
@@ -473,6 +503,25 @@ export default function LawyerMatterDetailPage({ params }) {
       setSharedUpdatesError(getErrorMessage(e, "Failed to create shared update."));
     } finally {
       setSharedUpdateBusy(false);
+    }
+  }
+
+  async function handleSendMessage(e) {
+    e.preventDefault();
+    const trimmed = newMessage.trim();
+    if (!trimmed) return;
+
+    setSendingMessage(true);
+    setMessagesError("");
+    try {
+      const created = await sendMatterMessage(matterId, trimmed);
+      setMessages((prev) => [...prev, created]);
+      setNewMessage("");
+      await refreshEvents();
+    } catch (e) {
+      setMessagesError(getErrorMessage(e, "Failed to send message."));
+    } finally {
+      setSendingMessage(false);
     }
   }
 
@@ -808,6 +857,95 @@ export default function LawyerMatterDetailPage({ params }) {
           </div>
         </section>
       </div>
+
+      <section id="messages" className="rounded-2xl border bg-white shadow-xl p-6">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Secure Conversation</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            Send matter-specific messages between the client and legal team.
+          </p>
+        </div>
+
+        <div className="mt-6 flex h-[460px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messagesLoading ? (
+              <p className="text-sm text-slate-600">Loading messages...</p>
+            ) : messagesError && !messages.length ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {messagesError}
+              </div>
+            ) : messages.length ? (
+              messages.map((msg) => {
+                const isMine = msg.sender_id === currentUser?.id;
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[78%] rounded-2xl px-4 py-3 shadow-sm ${
+                        isMine
+                          ? "bg-blue-600 text-white"
+                          : "border border-slate-200 bg-white text-slate-800"
+                      }`}
+                    >
+                      {!isMine && (
+                        <p className="text-xs font-semibold text-slate-500">
+                          {msg.sender_name || "User"}
+                        </p>
+                      )}
+                      <p
+                        className={`text-sm leading-6 whitespace-pre-wrap break-words ${
+                          !isMine ? "mt-1" : ""
+                        }`}
+                      >
+                        {msg.body}
+                      </p>
+                      <p
+                        className={`mt-1 text-xs ${
+                          isMine ? "text-blue-100" : "text-slate-500"
+                        }`}
+                      >
+                        {formatDateTime(msg.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-500">
+                No messages yet. Start the secure conversation for this matter.
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <form onSubmit={handleSendMessage} className="border-t border-slate-200 bg-white p-3">
+            <textarea
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Write a secure message..."
+              maxLength={5000}
+              className="min-h-[76px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
+            />
+            {messagesError && messages.length > 0 && (
+              <p className="mt-2 text-sm text-red-600">{messagesError}</p>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-slate-500">
+                Messages are visible to authorized users on this matter.
+              </p>
+              <button
+                type="submit"
+                disabled={sendingMessage || !newMessage.trim()}
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {sendingMessage ? "Sending..." : "Send Message"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
 
       <section className="rounded-2xl border bg-white shadow-xl p-6">
         <div>

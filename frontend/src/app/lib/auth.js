@@ -488,6 +488,32 @@ export async function createSharedUpdate(matterId, content) {
   return res.json();
 }
 
+export async function fetchMatterMessages(matterId) {
+  const res = await authFetch(`/matters/${matterId}/messages`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchMatterMessages failed:", res.status, txt);
+    throw new Error("Failed to load messages");
+  }
+  return res.json();
+}
+
+export async function sendMatterMessage(matterId, body) {
+  const res = await authFetch(`/matters/${matterId}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ body }),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("sendMatterMessage failed:", res.status, txt);
+    throw new Error("Failed to send message");
+  }
+  return res.json();
+}
+
 export async function fetchMatterEvents(matterId) {
   const res = await authFetch(`/matters/${matterId}/events`);
   if (!res.ok) {

@@ -25,6 +25,7 @@ from models import (
     DocumentAccessToken,
     Matter,
     MatterEvent,
+    MatterMessage,
     MatterNote,
     PasswordResetToken,
     User,
@@ -645,6 +646,18 @@ def serialize_event(event: MatterEvent):
     }
 
 
+def serialize_matter_message(message: MatterMessage):
+    return {
+        "id": message.id,
+        "matter_id": message.matter_id,
+        "sender_id": message.sender_id,
+        "sender_name": message.sender.name if message.sender else None,
+        "sender_role": message.sender.role if message.sender else None,
+        "body": message.body,
+        "created_at": message.created_at.isoformat() if message.created_at else None,
+    }
+
+
 def _safe_content_disposition(disposition: str, filename: str) -> str:
     safe_filename = (filename or "document").replace("\\", "_").replace('"', "")
     return f'{disposition}; filename="{safe_filename}"'
@@ -852,6 +865,10 @@ class MatterNoteCreate(BaseModel):
     content: str
 
 
+class MatterMessageCreate(BaseModel):
+    body: str
+
+
 class MatterNoteOut(BaseModel):
     id: int
     matter_id: int
@@ -869,6 +886,16 @@ class MatterEventOut(BaseModel):
     user_name: Optional[str]
     event_type: str
     message: str
+    created_at: Optional[str]
+
+
+class MatterMessageOut(BaseModel):
+    id: int
+    matter_id: int
+    sender_id: int
+    sender_name: Optional[str]
+    sender_role: Optional[str]
+    body: str
     created_at: Optional[str]
 
 
@@ -1626,6 +1653,73 @@ def list_matter_events(
     events = query.order_by(MatterEvent.created_at.desc()).all()
 
     return [serialize_event(e) for e in events]
+
+
+@app.get("/matters/{matter_id}/messages", response_model=list[MatterMessageOut])
+def list_matter_messages(
+    matter_id: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = get_accessible_matter(db, user, matter_id, request=request)
+
+    messages = (
+        db.query(MatterMessage)
+        .options(joinedload(MatterMessage.sender))
+        .filter(MatterMessage.matter_id == matter.id)
+        .order_by(MatterMessage.created_at.asc())
+        .all()
+    )
+
+    return [serialize_matter_message(m) for m in messages]
+
+
+@app.post("/matters/{matter_id}/messages", status_code=201, response_model=MatterMessageOut)
+def create_matter_message(
+    matter_id: int,
+    body: MatterMessageCreate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    matter = get_accessible_matter(db, user, matter_id, request=request)
+
+    message_body = body.body.strip()
+    if not message_body:
+        raise HTTPException(status_code=400, detail="Message cannot be empty")
+    if len(message_body) > 5000:
+        raise HTTPException(status_code=400, detail="Message is too long")
+
+    message = MatterMessage(
+        matter_id=matter.id,
+        sender_id=user.id,
+        body=message_body,
+    )
+    db.add(message)
+    db.flush()
+
+    create_matter_event(
+        db=db,
+        matter_id=matter.id,
+        event_type="message_sent",
+        message=f"{user.name} sent a message.",
+        user_id=user.id,
+    )
+    log_audit_event(
+        db=db,
+        event_type="matter_message_sent",
+        user_id=user.id,
+        resource_type="matter",
+        resource_id=matter.id,
+        request=request,
+        metadata={"message_id": message.id},
+    )
+
+    db.commit()
+    db.refresh(message)
+
+    return serialize_matter_message(message)
 
 
 @app.get("/matters/{matter_id}/internal-notes", response_model=list[MatterNoteOut])
