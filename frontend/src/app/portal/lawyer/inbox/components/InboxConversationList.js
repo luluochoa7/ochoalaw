@@ -9,7 +9,7 @@ export default function InboxConversationList({
   onSelectConversation,
 }) {
   return (
-    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col rounded-2xl border bg-white shadow-xl lg:h-[700px]">
+    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[700px]">
       <div className="border-b border-slate-200 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-slate-900">
           Recent Conversations

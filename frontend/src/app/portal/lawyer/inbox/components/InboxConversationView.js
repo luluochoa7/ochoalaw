@@ -29,7 +29,7 @@ export default function InboxConversationView({
 
   if (!conversation) {
     return (
-      <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col rounded-2xl border bg-white p-4 shadow-xl sm:p-6 lg:h-[700px]">
+      <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 lg:h-[700px]">
         <div className="flex flex-1 items-center justify-center">
           <InboxEmptyState
             title="Select a conversation."
@@ -38,7 +38,7 @@ export default function InboxConversationView({
               <button
                 type="button"
                 onClick={onStartNewMessage}
-                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
               >
                 New Message
               </button>
@@ -50,7 +50,7 @@ export default function InboxConversationView({
   }
 
   return (
-    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl lg:h-[700px]">
+    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[700px]">
       <div className="border-b border-slate-200 p-4 sm:p-6">
         <button
           type="button"

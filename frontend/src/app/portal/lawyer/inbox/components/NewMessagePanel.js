@@ -46,7 +46,7 @@ export default function NewMessagePanel({
   }
 
   return (
-    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border bg-white shadow-xl lg:h-[700px]">
+    <section className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:h-[700px]">
       <div className="border-b border-slate-200 p-4 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>

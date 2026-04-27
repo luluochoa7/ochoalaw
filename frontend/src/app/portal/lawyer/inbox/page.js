@@ -279,24 +279,31 @@ export default function LawyerInboxPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <section className="bg-slate-950">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-14">
-          <Link
-            href="/portal/lawyer"
-            className="text-sm text-blue-200 hover:text-white"
-          >
-            Back to dashboard
-          </Link>
-          <h1 className="mt-4 text-3xl font-semibold text-white">Inbox</h1>
-          <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <p className="max-w-2xl text-sm leading-6 text-slate-300">
-              Review and respond to secure matter conversations from one workspace.
-            </p>
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <Link
+                href="/portal/lawyer"
+                className="inline-flex text-sm font-medium text-slate-500 hover:text-slate-900"
+              >
+                Back to dashboard
+              </Link>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Secure matter messaging
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold text-slate-950">
+                Inbox
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                Review and respond to client conversations across active matters.
+              </p>
+            </div>
             <button
               type="button"
               onClick={handleStartNewMessage}
-              className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 sm:w-auto"
+              className="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto"
             >
               New Message
             </button>
@@ -304,7 +311,7 @@ export default function LawyerInboxPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-8">
+      <section className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           <div
             className={`lg:col-span-4 ${
