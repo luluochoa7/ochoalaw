@@ -286,9 +286,9 @@ export default function LawyerInboxPage() {
             <div>
               <Link
                 href="/portal/lawyer"
-                className="inline-flex text-sm font-medium text-slate-500 hover:text-slate-900"
+                className="inline-flex text-sm text-blue-700 hover:underline"
               >
-                Back to dashboard
+                ← Back to dashboard
               </Link>
               <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Secure matter messaging
