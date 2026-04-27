@@ -55,9 +55,9 @@ export default function InboxConversationView({
         <button
           type="button"
           onClick={onBackToConversations}
-          className="mb-4 inline-flex rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 lg:hidden"
+          className="mb-3 inline-flex text-sm font-medium text-blue-700 hover:underline lg:hidden"
         >
-          Back to conversations
+          ← Conversations
         </button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -76,7 +76,7 @@ export default function InboxConversationView({
 
           <Link
             href={`/portal/lawyer/matters/${conversation.matter_id}#messages`}
-            className="shrink-0 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex text-sm font-medium text-blue-700 hover:underline lg:shrink-0 lg:rounded-lg lg:border lg:border-slate-300 lg:bg-white lg:px-4 lg:py-2.5 lg:text-slate-700 lg:no-underline lg:hover:bg-slate-50"
           >
             Open Workspace
           </Link>
