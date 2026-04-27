@@ -16,6 +16,7 @@ export default function InboxConversationView({
   onSendMessage,
   sendingMessage,
   onBackToConversations,
+  onStartNewMessage,
 }) {
   const messagesListRef = useRef(null);
   const inputRef = useRef(null);
@@ -32,7 +33,16 @@ export default function InboxConversationView({
         <div className="flex flex-1 items-center justify-center">
           <InboxEmptyState
             title="Select a conversation."
-            description="Select a conversation to begin reviewing secure messages."
+            description="Select a conversation or start a new secure message."
+            action={
+              <button
+                type="button"
+                onClick={onStartNewMessage}
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                New Message
+              </button>
+            }
           />
         </div>
       </section>
