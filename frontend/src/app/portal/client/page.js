@@ -9,6 +9,9 @@ import {
   uploadMatterFile,
   fetchMatterDocuments,
   getDocumentAccessLinks,
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
 } from "../../lib/auth";
 
 function normalizeStatus(s) {
@@ -63,6 +66,109 @@ function getErrorMessage(error, fallback) {
   if (typeof error === "string") return error;
   if (typeof error?.message === "string" && error.message.trim()) return error.message;
   return fallback;
+}
+
+function formatNotificationDate(iso) {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function getNotificationHref(notification) {
+  if (notification.type === "new_message" && notification.matter_id) {
+    return `/portal/client/matters/${notification.matter_id}#messages`;
+  }
+  if (notification.type === "document_uploaded" && notification.matter_id) {
+    return `/portal/client/matters/${notification.matter_id}`;
+  }
+  if (notification.type === "shared_update_added" && notification.matter_id) {
+    return `/portal/client/matters/${notification.matter_id}`;
+  }
+  return "/portal/client";
+}
+
+function NotificationsPanel({
+  notifications,
+  notificationsLoading,
+  notificationsError,
+  onOpenNotification,
+  onMarkAllRead,
+}) {
+  const hasUnread = notifications.some((n) => !n.is_read);
+
+  return (
+    <section className="rounded-2xl border bg-white shadow-xl p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Recent matter activity for you.
+          </p>
+        </div>
+        {hasUnread && (
+          <button
+            type="button"
+            onClick={onMarkAllRead}
+            className="shrink-0 text-sm font-medium text-blue-700 hover:underline"
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+
+      <div className="mt-6 max-h-[320px] space-y-3 overflow-y-auto pr-1">
+        {notificationsLoading ? (
+          <p className="text-sm text-slate-600">Loading notifications...</p>
+        ) : notificationsError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {notificationsError}
+          </div>
+        ) : notifications.length ? (
+          notifications.map((notification) => (
+            <button
+              key={notification.id}
+              type="button"
+              onClick={() => onOpenNotification(notification)}
+              className={`w-full rounded-xl border p-4 text-left shadow-sm transition hover:bg-slate-100 ${
+                notification.is_read
+                  ? "border-slate-200 bg-slate-50"
+                  : "border-blue-200 bg-blue-50/70"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {notification.title}
+                  </p>
+                  {notification.body && (
+                    <p className="mt-1 break-words text-sm leading-6 text-slate-600">
+                      {notification.body}
+                    </p>
+                  )}
+                </div>
+                {!notification.is_read && (
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                )}
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {formatNotificationDate(notification.created_at)}
+              </p>
+            </button>
+          ))
+        ) : (
+          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+            No notifications yet.
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 function DocumentsPanel({ matters, loadingMatters }) {
@@ -443,6 +549,9 @@ export default function ClientDashboardPage() {
   const [mattersLoading, setMattersLoading] = useState(true);
   const [error, setError] = useState(null);
   const [pageError, setPageError] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [notificationsError, setNotificationsError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -452,12 +561,15 @@ export default function ClientDashboardPage() {
         setPageError(null);
         setError(null);
         setMattersLoading(true);
+        setNotificationsError("");
+        setNotificationsLoading(true);
       }
 
       try {
-        const [meResult, mattersResult] = await Promise.allSettled([
+        const [meResult, mattersResult, notificationsResult] = await Promise.allSettled([
           fetchMe(true),
           fetchMyMatters(),
+          fetchNotifications(),
         ]);
 
         if (cancelled) return;
@@ -478,6 +590,18 @@ export default function ClientDashboardPage() {
           setMatters([]);
           setError(getErrorMessage(mattersResult.reason, "Could not load your matters."));
         }
+
+        if (notificationsResult.status === "fulfilled") {
+          setNotifications(
+            Array.isArray(notificationsResult.value) ? notificationsResult.value : []
+          );
+          setNotificationsError("");
+        } else {
+          setNotifications([]);
+          setNotificationsError(
+            getErrorMessage(notificationsResult.reason, "Could not load notifications.")
+          );
+        }
       } catch (e) {
         if (!cancelled) {
           setPageError(getErrorMessage(e, "Could not load your dashboard."));
@@ -485,6 +609,7 @@ export default function ClientDashboardPage() {
       } finally {
         if (!cancelled) {
           setMattersLoading(false);
+          setNotificationsLoading(false);
           setAuthLoading(false);
         }
       }
@@ -496,6 +621,37 @@ export default function ClientDashboardPage() {
       cancelled = true;
     };
   }, [router]);
+
+  async function handleOpenNotification(notification) {
+    const href = getNotificationHref(notification);
+    try {
+      if (!notification.is_read) {
+        const updated = await markNotificationRead(notification.id);
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === updated.id ? updated : n))
+        );
+      }
+      router.push(href);
+    } catch (e) {
+      console.error(e);
+      router.push(href);
+    }
+  }
+
+  async function handleMarkAllNotificationsRead() {
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) =>
+        prev.map((n) => ({
+          ...n,
+          is_read: true,
+          read_at: n.read_at || new Date().toISOString(),
+        }))
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   if (authLoading) {
     return <div className="mt-24 text-center">Loading your dashboard...</div>;
@@ -601,6 +757,14 @@ export default function ClientDashboardPage() {
 
           {/* Side column */}
           <div className="space-y-6">
+            <NotificationsPanel
+              notifications={notifications}
+              notificationsLoading={notificationsLoading}
+              notificationsError={notificationsError}
+              onOpenNotification={handleOpenNotification}
+              onMarkAllRead={handleMarkAllNotificationsRead}
+            />
+
             {/* Documents (NOW FUNCTIONAL) */}
             <DocumentsPanel matters={matters} loadingMatters={mattersLoading} />
           </div>

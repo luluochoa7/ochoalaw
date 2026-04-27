@@ -219,6 +219,50 @@ export async function fetchLawyerInbox() {
   return res.json();
 }
 
+export async function fetchNotifications() {
+  const res = await authFetch("/notifications");
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchNotifications failed:", res.status, txt);
+    throw new Error("Failed to load notifications");
+  }
+  return res.json();
+}
+
+export async function fetchUnreadNotificationCount() {
+  const res = await authFetch("/notifications/unread-count");
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchUnreadNotificationCount failed:", res.status, txt);
+    throw new Error("Failed to load notification count");
+  }
+  return res.json();
+}
+
+export async function markNotificationRead(notificationId) {
+  const res = await authFetch(`/notifications/${notificationId}/read`, {
+    method: "PATCH",
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("markNotificationRead failed:", res.status, txt);
+    throw new Error("Failed to mark notification as read");
+  }
+  return res.json();
+}
+
+export async function markAllNotificationsRead() {
+  const res = await authFetch("/notifications/read-all", {
+    method: "PATCH",
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("markAllNotificationsRead failed:", res.status, txt);
+    throw new Error("Failed to mark notifications as read");
+  }
+  return res.json();
+}
+
 export async function fetchMatter(matterId) {
   const res = await authFetch(`/matters/${matterId}`);
   if (!res.ok) {

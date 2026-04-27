@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, func, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, Text, DateTime, func, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship     
 
@@ -124,6 +124,25 @@ class MatterMessage(Base):
 
     matter = relationship("Matter", backref="messages")
     sender = relationship("User", backref="matter_messages")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    type = Column(String(100), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    body = Column(Text, nullable=True)
+    matter_id = Column(Integer, ForeignKey("matters.id"), nullable=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    message_id = Column(Integer, ForeignKey("matter_messages.id"), nullable=True)
+    is_read = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    read_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", backref="notifications")
+    matter = relationship("Matter", backref="notifications")
 
 
 class MatterEvent(Base):

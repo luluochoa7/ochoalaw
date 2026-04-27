@@ -27,6 +27,7 @@ from models import (
     MatterEvent,
     MatterMessage,
     MatterNote,
+    Notification,
     PasswordResetToken,
     User,
     UserSession,
@@ -658,6 +659,53 @@ def serialize_matter_message(message: MatterMessage):
     }
 
 
+def serialize_notification(notification: Notification):
+    return {
+        "id": notification.id,
+        "user_id": notification.user_id,
+        "type": notification.type,
+        "title": notification.title,
+        "body": notification.body,
+        "matter_id": notification.matter_id,
+        "document_id": notification.document_id,
+        "message_id": notification.message_id,
+        "is_read": notification.is_read,
+        "created_at": notification.created_at.isoformat() if notification.created_at else None,
+        "read_at": notification.read_at.isoformat() if notification.read_at else None,
+    }
+
+
+def create_notification(
+    db: Session,
+    user_id: int,
+    type: str,
+    title: str,
+    body: str | None = None,
+    matter_id: int | None = None,
+    document_id: int | None = None,
+    message_id: int | None = None,
+):
+    notification = Notification(
+        user_id=user_id,
+        type=type,
+        title=title,
+        body=body,
+        matter_id=matter_id,
+        document_id=document_id,
+        message_id=message_id,
+    )
+    db.add(notification)
+    return notification
+
+
+def get_notification_recipient_id(user: User, matter: Matter) -> int | None:
+    if user.role == "lawyer":
+        return matter.client_id
+    if user.role == "client":
+        return matter.lawyer_id
+    return None
+
+
 def _safe_content_disposition(disposition: str, filename: str) -> str:
     safe_filename = (filename or "document").replace("\\", "_").replace('"', "")
     return f'{disposition}; filename="{safe_filename}"'
@@ -689,6 +737,82 @@ def get_valid_document_access_token(token: str, db: Session):
 @app.get("/auth/me")
 def auth_me(user: User = Depends(get_current_user)):
     return user_payload(user)
+
+
+@app.get("/notifications")
+def list_notifications(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    notifications = (
+        db.query(Notification)
+        .filter(Notification.user_id == user.id)
+        .order_by(Notification.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    return [serialize_notification(n) for n in notifications]
+
+
+@app.get("/notifications/unread-count")
+def get_unread_notification_count(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    count = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == user.id,
+            Notification.is_read.is_(False),
+        )
+        .count()
+    )
+    return {"unread_count": count}
+
+
+@app.patch("/notifications/{notification_id}/read")
+def mark_notification_read(
+    notification_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    notification = (
+        db.query(Notification)
+        .filter(
+            Notification.id == notification_id,
+            Notification.user_id == user.id,
+        )
+        .first()
+    )
+    if not notification:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    notification.is_read = True
+    notification.read_at = utc_now()
+    db.commit()
+    db.refresh(notification)
+    return serialize_notification(notification)
+
+
+@app.patch("/notifications/read-all")
+def mark_all_notifications_read(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    notifications = (
+        db.query(Notification)
+        .filter(
+            Notification.user_id == user.id,
+            Notification.is_read.is_(False),
+        )
+        .all()
+    )
+    now = utc_now()
+    for notification in notifications:
+        notification.is_read = True
+        notification.read_at = now
+    db.commit()
+    return {"updated": len(notifications)}
 
 
 @app.post("/auth/refresh")
@@ -1394,7 +1518,7 @@ def create_document(
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3 bucket is not configured")
 
-    get_accessible_matter(db, user, matter_id, request=request)
+    matter = get_accessible_matter(db, user, matter_id, request=request)
 
     expected_prefix = f"{S3_UPLOAD_PREFIX}/matter-{matter_id}/"
     if not body.object_key.startswith(expected_prefix):
@@ -1425,6 +1549,17 @@ def create_document(
         message=f"{user.name} uploaded document {doc.filename}.",
         user_id=user.id,
     )
+    recipient_id = get_notification_recipient_id(user, matter)
+    if recipient_id and recipient_id != user.id:
+        create_notification(
+            db=db,
+            user_id=recipient_id,
+            type="document_uploaded",
+            title="New document uploaded",
+            body=f"{doc.filename} was uploaded to {matter.title}.",
+            matter_id=matter.id,
+            document_id=doc.id,
+        )
     log_audit_event(
         db,
         "document_uploaded",
@@ -1761,6 +1896,17 @@ def create_matter_message(
         message=f"{user.name} sent a message.",
         user_id=user.id,
     )
+    recipient_id = get_notification_recipient_id(user, matter)
+    if recipient_id and recipient_id != user.id:
+        create_notification(
+            db=db,
+            user_id=recipient_id,
+            type="new_message",
+            title=f"New message from {user.name}",
+            body=matter.title,
+            matter_id=matter.id,
+            message_id=message.id,
+        )
     log_audit_event(
         db=db,
         event_type="matter_message_sent",
@@ -1870,7 +2016,7 @@ def create_shared_update(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    get_accessible_matter(db, user, matter_id, request=request)
+    matter = get_accessible_matter(db, user, matter_id, request=request)
 
     content = body.content.strip()
     if not content:
@@ -1892,6 +2038,16 @@ def create_shared_update(
         message=f"{user.name} added a shared update.",
         user_id=user.id,
     )
+    recipient_id = get_notification_recipient_id(user, matter)
+    if recipient_id and recipient_id != user.id:
+        create_notification(
+            db=db,
+            user_id=recipient_id,
+            type="shared_update_added",
+            title="New shared update",
+            body=f"A new update was added to {matter.title}.",
+            matter_id=matter.id,
+        )
 
     db.commit()
     db.refresh(note)
