@@ -114,77 +114,100 @@ function NotificationsPanel({
   onOpenNotification,
   onMarkAllRead,
 }) {
-  const hasUnread = notifications.some((n) => !n.is_read);
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const hasUnread = unreadCount > 0;
+  const visibleNotifications = notifications.slice(0, 3);
+  const showOverflowNote =
+    !notificationsLoading &&
+    !notificationsError &&
+    notifications.length > visibleNotifications.length;
 
   return (
-    <section className="rounded-2xl border bg-white shadow-xl p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Recent matter activity for you.
-          </p>
-        </div>
-        {hasUnread && (
-          <button
-            type="button"
-            onClick={onMarkAllRead}
-            className="shrink-0 text-sm font-medium text-blue-700 hover:underline"
-          >
-            Mark all read
-          </button>
-        )}
-      </div>
-
-      <div className="mt-6 max-h-[320px] space-y-3 overflow-y-auto pr-1">
-        {notificationsLoading ? (
-          <p className="text-sm text-slate-600">Loading notifications...</p>
-        ) : notificationsError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {notificationsError}
+    <section className="rounded-2xl border bg-white p-5 shadow-xl">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-stretch">
+        <div className="flex shrink-0 flex-col justify-between gap-3 xl:w-64">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-slate-900">Notifications</h2>
+              {hasUnread && (
+                <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                  {unreadCount} unread
+                </span>
+              )}
+            </div>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              New messages and matter updates.
+            </p>
           </div>
-        ) : notifications.length ? (
-          notifications.map((notification) => (
+          {hasUnread && (
             <button
-              key={notification.id}
               type="button"
-              onClick={() => onOpenNotification(notification)}
-              className={`w-full rounded-xl border p-4 text-left shadow-sm transition hover:bg-slate-100 ${
-                notification.is_read
-                  ? "border-slate-200 bg-slate-50"
-                  : "border-blue-200 bg-blue-50/70"
-              }`}
+              onClick={onMarkAllRead}
+              className="self-start text-sm font-medium text-blue-700 hover:underline"
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">
-                    {notification.title}
-                  </p>
-                  {notification.body && (
-                    <p className="mt-1 break-words text-sm leading-6 text-slate-600">
-                      {notification.body}
-                    </p>
-                  )}
-                </div>
-                {!notification.is_read && (
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
-                )}
-              </div>
-              <p className="mt-2 text-xs text-slate-500">
-                {formatNotificationDate(notification.created_at)}
-              </p>
+              Mark all read
             </button>
-          ))
-        ) : (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-            No notifications yet.
-          </div>
-        )}
+          )}
+        </div>
+
+        <div className="grid flex-1 grid-cols-1 gap-3 lg:grid-cols-3">
+          {notificationsLoading ? (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-600 lg:col-span-3">
+              Loading notifications...
+            </div>
+          ) : notificationsError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-5 text-sm text-red-700 lg:col-span-3">
+              {notificationsError}
+            </div>
+          ) : notifications.length ? (
+            visibleNotifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                onClick={() => onOpenNotification(notification)}
+                className={`min-h-[116px] rounded-xl border p-4 text-left shadow-sm transition hover:bg-slate-100 ${
+                  notification.is_read
+                    ? "border-slate-200 bg-slate-50"
+                    : "border-blue-200 bg-blue-50/70"
+                }`}
+              >
+                <div className="flex h-full flex-col justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {notification.title}
+                      </p>
+                      {notification.body && (
+                        <p className="mt-1 line-clamp-2 break-words text-sm leading-6 text-slate-600">
+                          {notification.body}
+                        </p>
+                      )}
+                    </div>
+                    {!notification.is_read && (
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {formatNotificationDate(notification.created_at)}
+                  </p>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-500 lg:col-span-3">
+              No notifications yet.
+            </div>
+          )}
+          {showOverflowNote && (
+            <p className="text-xs text-slate-500 lg:col-span-3">
+              Showing the latest {visibleNotifications.length} of {notifications.length}.
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );
 }
-
 function DocumentsPanel({ matters, loadingMatters }) {
   const [selectedMatterId, setSelectedMatterId] = useState("");
   const [docs, setDocs] = useState([]);
@@ -849,7 +872,15 @@ export default function LawyerDashboardPage() {
             <Stat label="Unbilled time" value="—" sub="Time tracking coming soon" />
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <NotificationsPanel
+            notifications={notifications}
+            notificationsLoading={notificationsLoading}
+            notificationsError={notificationsError}
+            onOpenNotification={handleOpenNotification}
+            onMarkAllRead={handleMarkAllNotificationsRead}
+          />
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3 xl:items-start">
             {/* Matters */}
             <section className="xl:col-span-2 rounded-2xl border bg-white shadow-xl p-6">
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -937,14 +968,6 @@ export default function LawyerDashboardPage() {
                   </button>
                 </div>
               </section>
-
-              <NotificationsPanel
-                notifications={notifications}
-                notificationsLoading={notificationsLoading}
-                notificationsError={notificationsError}
-                onOpenNotification={handleOpenNotification}
-                onMarkAllRead={handleMarkAllNotificationsRead}
-              />
 
               <section className="rounded-2xl border bg-white shadow-xl p-6">
                 <div>
