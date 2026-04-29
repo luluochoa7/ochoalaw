@@ -85,10 +85,10 @@ function getNotificationHref(notification) {
     return `/portal/client/matters/${notification.matter_id}#messages`;
   }
   if (notification.type === "document_uploaded" && notification.matter_id) {
-    return `/portal/client/matters/${notification.matter_id}`;
+    return `/portal/client/matters/${notification.matter_id}#documents`;
   }
   if (notification.type === "shared_update_added" && notification.matter_id) {
-    return `/portal/client/matters/${notification.matter_id}`;
+    return `/portal/client/matters/${notification.matter_id}#shared-updates`;
   }
   return "/portal/client";
 }

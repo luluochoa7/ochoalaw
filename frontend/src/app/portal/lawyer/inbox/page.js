@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   fetchLawyerInbox,
   fetchMatterMessages,
@@ -32,8 +32,10 @@ function sortInboxItems(items) {
   );
 }
 
-export default function LawyerInboxPage() {
+function LawyerInboxContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const matterIdFromUrl = searchParams.get("matterId");
   const [currentUser, setCurrentUser] = useState(null);
   const [items, setItems] = useState([]);
   const [matters, setMatters] = useState([]);
@@ -172,6 +174,20 @@ export default function LawyerInboxPage() {
       cancelled = true;
     };
   }, [selectedMatterId]);
+
+  useEffect(() => {
+    if (!matterIdFromUrl || !items.length) return;
+
+    const match = items.find(
+      (item) => String(item.matter_id) === String(matterIdFromUrl)
+    );
+    if (!match) return;
+
+    setShowNewMessage(false);
+    setSelectedMatterId(match.matter_id);
+    setNewMessage("");
+    setMessagesError("");
+  }, [matterIdFromUrl, items]);
 
   function handleSelectConversation(item) {
     setShowNewMessage(false);
@@ -359,5 +375,25 @@ export default function LawyerInboxPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function LawyerInboxFallback() {
+  return (
+    <main className="min-h-screen bg-slate-50">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+          <p className="text-sm text-slate-600">Loading inbox...</p>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+export default function LawyerInboxPage() {
+  return (
+    <Suspense fallback={<LawyerInboxFallback />}>
+      <LawyerInboxContent />
+    </Suspense>
   );
 }

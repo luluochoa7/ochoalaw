@@ -631,7 +631,7 @@ export default function LawyerMatterDetailPage({ params }) {
           )}
         </section>
 
-        <section className="xl:col-span-1 rounded-2xl border bg-white shadow-xl p-6">
+        <section id="documents" className="xl:col-span-1 rounded-2xl border bg-white shadow-xl p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -797,7 +797,7 @@ export default function LawyerMatterDetailPage({ params }) {
           </div>
         </section>
 
-        <section className="rounded-2xl border bg-white shadow-xl p-6">
+        <section id="shared-updates" className="rounded-2xl border bg-white shadow-xl p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Shared Updates</h2>
             <p className="mt-2 text-sm text-slate-600">

@@ -96,13 +96,15 @@ function formatNotificationDate(iso) {
 function getNotificationHref(notification, role = "lawyer") {
   const base = role === "client" ? "/portal/client" : "/portal/lawyer";
   if (notification.type === "new_message" && notification.matter_id) {
-    return `${base}/inbox`;
+    return role === "lawyer"
+      ? `${base}/inbox?matterId=${notification.matter_id}`
+      : `${base}/matters/${notification.matter_id}#messages`;
   }
   if (notification.type === "document_uploaded" && notification.matter_id) {
-    return `${base}/matters/${notification.matter_id}`;
+    return `${base}/matters/${notification.matter_id}#documents`;
   }
   if (notification.type === "shared_update_added" && notification.matter_id) {
-    return `${base}/matters/${notification.matter_id}`;
+    return `${base}/matters/${notification.matter_id}#shared-updates`;
   }
   return base;
 }
