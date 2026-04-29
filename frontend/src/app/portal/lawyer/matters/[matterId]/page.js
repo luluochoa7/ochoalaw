@@ -68,6 +68,29 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+function getCurrentHashId() {
+  if (typeof window === "undefined") return "";
+  const raw = window.location.hash.replace(/^#/, "");
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function scrollToCurrentHash() {
+  const hashId = getCurrentHashId();
+  if (!hashId) return;
+
+  window.requestAnimationFrame(() => {
+    const target = document.getElementById(hashId);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  });
+}
+
 function normalizeStatus(status) {
   const value = (status || "").toString().trim();
   if (!value) return "Open";
@@ -359,6 +382,18 @@ export default function LawyerMatterDetailPage({ params }) {
     }
   }, [messages, messagesLoading]);
 
+  useEffect(() => {
+    if (authLoading) return;
+
+    const timeoutId = window.setTimeout(scrollToCurrentHash, 0);
+    window.addEventListener("hashchange", scrollToCurrentHash);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("hashchange", scrollToCurrentHash);
+    };
+  }, [authLoading, matterId]);
+
   async function handleStatusChange(nextStatus) {
     if (!matter) return;
     setActionError("");
@@ -631,7 +666,7 @@ export default function LawyerMatterDetailPage({ params }) {
           )}
         </section>
 
-        <section id="documents" className="xl:col-span-1 rounded-2xl border bg-white shadow-xl p-6">
+        <section id="documents" className="scroll-mt-24 xl:col-span-1 rounded-2xl border bg-white shadow-xl p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -797,7 +832,7 @@ export default function LawyerMatterDetailPage({ params }) {
           </div>
         </section>
 
-        <section id="shared-updates" className="rounded-2xl border bg-white shadow-xl p-6">
+        <section id="shared-updates" className="scroll-mt-24 rounded-2xl border bg-white shadow-xl p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Shared Updates</h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -858,7 +893,7 @@ export default function LawyerMatterDetailPage({ params }) {
         </section>
       </div>
 
-      <section id="messages" className="rounded-2xl border bg-white shadow-xl p-6">
+      <section id="messages" className="scroll-mt-24 rounded-2xl border bg-white shadow-xl p-6">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Secure Conversation</h2>
           <p className="mt-2 text-sm text-slate-600">
