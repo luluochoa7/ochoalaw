@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+import html
 from secrets import token_urlsafe
 from typing import Optional
 import hmac
@@ -68,6 +69,9 @@ CSRF_HEADER_NAME = "x-csrf-token"
 COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() == "true"
 COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", ".ochoalawyers.com").strip() or None
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
+DEFAULT_FRONTEND_BASE_URL = "https://ochoalawyers.com"
+DEFAULT_SECURE_ACTIVITY_EMAIL_COOLDOWN_SECONDS = 15 * 60
+_secure_activity_email_sent_at: dict[tuple[int, int, str], float] = {}
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB FILE SIZE LIMIT
 
@@ -704,6 +708,210 @@ def get_notification_recipient_id(user: User, matter: Matter) -> int | None:
     if user.role == "client":
         return matter.lawyer_id
     return None
+
+
+def get_frontend_base_url() -> str:
+    return os.getenv("FRONTEND_BASE_URL", DEFAULT_FRONTEND_BASE_URL).rstrip("/")
+
+
+def get_secure_activity_email_cooldown_seconds() -> int:
+    raw_value = os.getenv(
+        "SECURE_ACTIVITY_EMAIL_COOLDOWN_SECONDS",
+        str(DEFAULT_SECURE_ACTIVITY_EMAIL_COOLDOWN_SECONDS),
+    )
+    try:
+        return max(0, int(raw_value))
+    except ValueError:
+        return DEFAULT_SECURE_ACTIVITY_EMAIL_COOLDOWN_SECONDS
+
+
+def get_portal_activity_url(user: User, matter_id: int) -> str:
+    frontend_base = get_frontend_base_url()
+    if user.role == "lawyer":
+        return f"{frontend_base}/portal/lawyer/inbox?matterId={matter_id}"
+    if user.role == "client":
+        return f"{frontend_base}/portal/client/matters/{matter_id}#messages"
+    return frontend_base
+
+
+def get_shared_update_url(user: User, matter_id: int) -> str:
+    frontend_base = get_frontend_base_url()
+    if user.role == "lawyer":
+        return f"{frontend_base}/portal/lawyer/matters/{matter_id}#shared-updates"
+    if user.role == "client":
+        return f"{frontend_base}/portal/client/matters/{matter_id}#shared-updates"
+    return frontend_base
+
+
+def get_matter_recipient_for_actor(matter: Matter, actor: User, db: Session):
+    if actor.role == "lawyer":
+        recipient_id = matter.client_id
+    elif actor.role == "client":
+        recipient_id = matter.lawyer_id
+    else:
+        return None
+
+    if not recipient_id:
+        return None
+
+    return db.query(User).filter(User.id == recipient_id).first()
+
+
+def send_secure_activity_email(
+    *,
+    to_email: str,
+    recipient_name: str | None,
+    activity_type: str,
+    portal_url: str,
+):
+    if not to_email:
+        return
+
+    display_name = recipient_name.strip() if recipient_name else "there"
+    if not display_name:
+        display_name = "there"
+
+    safe_display_name = html.escape(display_name)
+    safe_activity_type = html.escape(activity_type)
+    safe_portal_url = html.escape(portal_url, quote=True)
+    subject = f"{activity_type} in your Ochoa Lawyers portal"
+
+    if activity_type == "New secure message":
+        activity_copy = "You have received a new secure message in your Ochoa Lawyers portal."
+        action_copy = "Please log in securely to review and respond."
+    elif activity_type == "New shared update":
+        activity_copy = "A new shared update has been added in your Ochoa Lawyers portal."
+        action_copy = "Please log in securely to review it."
+    else:
+        activity_copy = "You have new secure activity in your Ochoa Lawyers portal."
+        action_copy = "Please log in securely to review it."
+
+    safe_activity_copy = html.escape(activity_copy)
+    safe_action_copy = html.escape(action_copy)
+
+    html_body = f"""
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #0f172a;">
+      <h2 style="margin-bottom: 12px;">Ochoa Lawyers</h2>
+      <p>Hi {safe_display_name},</p>
+      <p>{safe_activity_copy}</p>
+      <p>
+        <strong>Activity:</strong><br />
+        {safe_activity_type}
+      </p>
+      <p>{safe_action_copy}</p>
+      <p>
+        <a href="{safe_portal_url}"
+           style="display: inline-block; background: #2563eb; color: white; padding: 10px 16px; border-radius: 8px; text-decoration: none;">
+          Open Secure Portal
+        </a>
+      </p>
+      <p style="font-size: 12px; color: #64748b; margin-top: 24px;">
+        For your privacy, this email does not include message, update, or case details.
+      </p>
+    </div>
+    """
+    text_body = f"""
+Hi {display_name},
+
+{activity_copy}
+
+Activity:
+{activity_type}
+
+{action_copy}
+{portal_url}
+
+For your privacy, this email does not include message, update, or case details.
+"""
+
+    send_transactional_email(
+        to_email=to_email,
+        subject=subject,
+        html_body=html_body,
+        text_body=text_body,
+    )
+
+
+def should_send_secure_activity_email(
+    *,
+    recipient_id: int,
+    matter_id: int,
+    email_type: str,
+) -> bool:
+    cooldown_seconds = get_secure_activity_email_cooldown_seconds()
+    if cooldown_seconds <= 0:
+        return True
+
+    key = (recipient_id, matter_id, email_type)
+    last_sent_at = _secure_activity_email_sent_at.get(key)
+    if last_sent_at is None:
+        return True
+
+    return time.time() - last_sent_at >= cooldown_seconds
+
+
+def mark_secure_activity_email_sent(
+    *,
+    recipient_id: int,
+    matter_id: int,
+    email_type: str,
+):
+    now = time.time()
+    cooldown_seconds = get_secure_activity_email_cooldown_seconds()
+    _secure_activity_email_sent_at[(recipient_id, matter_id, email_type)] = now
+
+    if len(_secure_activity_email_sent_at) > 1000 and cooldown_seconds > 0:
+        stale_before = now - cooldown_seconds
+        stale_keys = [
+            key
+            for key, sent_at in _secure_activity_email_sent_at.items()
+            if sent_at < stale_before
+        ]
+        for key in stale_keys:
+            _secure_activity_email_sent_at.pop(key, None)
+
+
+def send_matter_activity_email_to_recipient(
+    *,
+    db: Session,
+    matter: Matter,
+    actor: User,
+    activity_type: str,
+    email_type: str,
+):
+    try:
+        recipient = get_matter_recipient_for_actor(matter, actor, db)
+        if not recipient or recipient.id == actor.id:
+            return
+        if not recipient.email:
+            return
+        if not should_send_secure_activity_email(
+            recipient_id=recipient.id,
+            matter_id=matter.id,
+            email_type=email_type,
+        ):
+            return
+
+        if email_type == "message":
+            portal_url = get_portal_activity_url(recipient, matter.id)
+        elif email_type == "shared_update":
+            portal_url = get_shared_update_url(recipient, matter.id)
+        else:
+            portal_url = get_frontend_base_url()
+
+        send_secure_activity_email(
+            to_email=recipient.email,
+            recipient_name=recipient.name,
+            activity_type=activity_type,
+            portal_url=portal_url,
+        )
+        mark_secure_activity_email_sent(
+            recipient_id=recipient.id,
+            matter_id=matter.id,
+            email_type=email_type,
+        )
+    except Exception as email_error:
+        print(f"Failed to send secure activity email: {email_error}")
 
 
 def _safe_content_disposition(disposition: str, filename: str) -> str:
@@ -1920,6 +2128,14 @@ def create_matter_message(
     db.commit()
     db.refresh(message)
 
+    send_matter_activity_email_to_recipient(
+        db=db,
+        matter=matter,
+        actor=user,
+        activity_type="New secure message",
+        email_type="message",
+    )
+
     return serialize_matter_message(message)
 
 
@@ -2051,5 +2267,13 @@ def create_shared_update(
 
     db.commit()
     db.refresh(note)
+
+    send_matter_activity_email_to_recipient(
+        db=db,
+        matter=matter,
+        actor=user,
+        activity_type="New shared update",
+        email_type="shared_update",
+    )
 
     return serialize_note(note)
