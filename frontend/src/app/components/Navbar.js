@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -13,13 +13,14 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
+  const hasLoadedUserRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     let ignore = false;
 
-    async function loadUser(withLoading = true) {
+    async function loadUser(withLoading = !hasLoadedUserRef.current) {
       if (!ignore && withLoading) setLoadingUser(true);
       try {
         const me = await fetchMe(pathname?.startsWith("/portal/"));
@@ -32,16 +33,18 @@ export default function Navbar() {
         }
       } finally {
         if (!ignore) {
+          hasLoadedUserRef.current = true;
           setLoadingUser(false);
         }
       }
     }
 
-    loadUser(true);
+    loadUser(!hasLoadedUserRef.current);
 
     function handleAuthChange(event) {
       if (event?.detail && Object.prototype.hasOwnProperty.call(event.detail, "user")) {
         setUser(event.detail.user || null);
+        hasLoadedUserRef.current = true;
         setLoadingUser(false);
         return;
       }
