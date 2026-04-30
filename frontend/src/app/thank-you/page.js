@@ -22,89 +22,121 @@ export default function ThankYou() {
   }, [seconds, router]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-900 via-slate-800 to-black text-white">
-      <main className="flex-1 mt-16 flex items-center justify-center px-4">
-        <div className="w-full max-w-2xl">
-          {/* Card */}
-          <div className="relative rounded-2xl bg-white/5 backdrop-blur border border-white/10 shadow-2xl overflow-hidden">
-            {/* Top accent */}
-            <div className="h-1 w-full bg-gradient-to-r from-blue-500 via-indigo-500 to-cyan-400" />
-
-            <div className="p-8 sm:p-10 text-center">
-              {/* Icon */}
-              <div className="mx-auto mb-6 h-16 w-16 rounded-full bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center relative">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500/20" />
-                <svg
-                  aria-hidden="true"
-                  className="h-8 w-8 text-emerald-300"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                >
-                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
-
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                Thank you for reaching out!
-              </h1>
-              <p className="mt-3 text-slate-300">
-                We’ve received your message and will get back to you shortly.
-              </p>
-
-              {/* Countdown */}
-              <div className="mt-6 flex items-center justify-center gap-3">
-                <div className="rounded-full bg-white/10 px-4 py-2 text-sm text-slate-200 border border-white/10">
-                  Redirecting to the homepage in{" "}
-                  <span className="font-semibold text-white">{seconds}</span> sec
-                  {seconds === 1 ? "" : "s"}…
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+    <div className="min-h-screen bg-stone-100 text-slate-950">
+      <main className="px-4 pb-16 pt-24 sm:px-6 lg:px-10">
+        <section className="mx-auto max-w-6xl overflow-hidden rounded-lg border border-stone-200 bg-white shadow-2xl shadow-slate-950/10">
+          <div className="grid min-h-[560px] lg:grid-cols-[0.92fr_1.08fr]">
+            <aside className="flex flex-col justify-between bg-stone-50 px-6 py-8 sm:px-10 lg:px-14 lg:py-16">
+              <div>
                 <Link
                   href="/"
-                  className="inline-flex items-center rounded-lg bg-blue-600 px-5 py-3 font-medium text-white hover:bg-blue-700 shadow"
+                  className="text-sm font-semibold uppercase text-amber-700 hover:text-amber-800"
                 >
-                  Go to Homepage
+                  &larr; Back to home
                 </Link>
-                <Link
-                  href="/contact-us"
-                  className="inline-flex items-center rounded-lg border border-white/15 bg-white/5 px-5 py-3 font-medium text-white hover:bg-white/10"
-                >
-                  Submit Another Inquiry
-                </Link>
+
+                <p className="mt-14 text-sm font-bold uppercase text-amber-700">
+                  Request Submitted
+                </p>
+                <h1 className="mt-4 text-4xl font-semibold leading-tight text-slate-950 sm:text-5xl">
+                  Thank you for reaching out.
+                </h1>
+                <p className="mt-6 max-w-md text-base leading-8 text-slate-600">
+                  We received your message and will review it carefully. Someone from
+                  Ochoa Lawyers will follow up about your request.
+                </p>
               </div>
-            </div>
 
-            {/* Subtle gradient glow */}
-            <div className="pointer-events-none absolute -inset-20 opacity-20 blur-3xl"
-                 style={{
-                   background:
-                     "radial-gradient(600px circle at 50% -10%, rgba(99,102,241,0.35), transparent 60%)"
-                 }}
-            />
-          </div>
+              <div className="mt-12 border-t border-stone-300 pt-8">
+                <h2 className="text-sm font-bold uppercase text-slate-500">
+                  Firm Contact
+                </h2>
+                <dl className="mt-5 space-y-5 text-sm">
+                  <div>
+                    <dt className="font-semibold text-slate-950">Phone</dt>
+                    <dd className="mt-1 text-slate-600">
+                      <a href="tel:+17739411906" className="hover:text-[#245B83]">
+                        (773) 941-1906
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-slate-950">Email</dt>
+                    <dd className="mt-1 break-words text-slate-600">
+                      <a href="mailto:ochoajr16@gmail.com" className="hover:text-[#245B83]">
+                        ochoajr16@gmail.com
+                      </a>
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            </aside>
 
-          {/* Bottom links */}
-          <div className="mt-6 text-center text-sm text-slate-400">
-            Prefer not to wait?{" "}
-            <button
-              onClick={() => router.push("/")}
-              className="underline underline-offset-4 hover:text-slate-200"
-            >
-              Click here to go now
-            </button>
-            .
+            <section className="flex items-center px-6 py-8 sm:px-10 lg:px-14 lg:py-16">
+              <div className="mx-auto w-full max-w-xl">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-amber-700">
+                  <svg
+                    aria-hidden="true"
+                    className="h-8 w-8"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                  >
+                    <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+
+                <div className="mt-8 border-b border-slate-200 pb-6">
+                  <h2 className="text-2xl font-semibold text-slate-950">
+                    Your request is in.
+                  </h2>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    You can return home now, or submit another request if there is
+                    something else you would like to add.
+                  </p>
+                </div>
+
+                <div className="mt-8 border-l-2 border-amber-500 pl-4">
+                  <p className="text-sm font-semibold text-slate-950">
+                    Returning to the homepage in {seconds} second{seconds === 1 ? "" : "s"}.
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Prefer not to wait? Use the links below.
+                  </p>
+                </div>
+
+                <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href="/"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-amber-400 px-7 py-3 text-sm font-bold uppercase text-slate-950 shadow-[0_14px_34px_rgba(251,191,36,0.18)] hover:bg-amber-300"
+                  >
+                    Go Home
+                  </Link>
+                  <Link
+                    href="/contact-us"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 px-7 py-3 text-sm font-bold uppercase text-slate-950 hover:border-slate-950 hover:bg-slate-950 hover:text-white"
+                  >
+                    Send Another
+                  </Link>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/")}
+                  className="mt-6 text-sm font-medium text-[#245B83] hover:text-[#183F5F] hover:underline"
+                >
+                  Return now
+                </button>
+              </div>
+            </section>
           </div>
-        </div>
+        </section>
       </main>
 
-      <footer className="border-t border-white/10 bg-black/40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 text-center text-slate-400 text-sm">
-          © {new Date().getFullYear()} Ochoa &amp; Co. All rights reserved.
+      <footer className="bg-slate-900 text-slate-300">
+        <div className="mx-auto max-w-7xl px-4 py-8 text-center text-sm sm:px-6">
+          &copy; {new Date().getFullYear()} Ochoa Lawyers. All rights reserved.
         </div>
       </footer>
     </div>
