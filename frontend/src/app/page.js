@@ -266,7 +266,7 @@ export default function Home() {
 
       <section id="contact" className="relative isolate overflow-hidden bg-slate-950 px-5 py-20 text-white sm:px-8 lg:px-10">
         <Image
-          src="/about-photo.jpg"
+          src="/chicago-skyline.jpg"
           alt=""
           fill
           sizes="100vw"

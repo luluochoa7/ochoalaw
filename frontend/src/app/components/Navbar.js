@@ -73,26 +73,25 @@ export default function Navbar() {
     : "/portal";
 
   return (
-    <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-slate-950/[0.92] text-white shadow-xl shadow-slate-950/20 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8 lg:px-10">
+    <header className="fixed left-0 top-0 z-50 w-full border-b border-slate-800 bg-slate-900/[0.96] text-white shadow-md backdrop-blur">
+      <div className="container mx-auto flex items-center justify-between p-4">
         {/* Logo */}
-        <div>
-          <Link href="/" className="block text-lg font-semibold uppercase text-white">
+        <div className="text-xl font-bold">
+          <Link href="/" className="text-white hover:text-amber-200">
             Ochoa Lawyers
           </Link>
-          <p className="hidden text-xs uppercase text-amber-200 sm:block">Chicago legal counsel</p>
         </div>
 
         {/* Desktop Menu */}
-        <nav className="hidden items-center gap-7 text-sm font-semibold uppercase md:flex">
+        <nav className="hidden items-center space-x-6 text-sm font-medium md:flex">
           <Link href="/#about" className="text-stone-200 hover:text-amber-200">
             About
           </Link>
           <Link href="/#services" className="text-stone-200 hover:text-amber-200">
-            Practice Areas
+            Services
           </Link>
           <Link href="/#testimonials" className="text-stone-200 hover:text-amber-200">
-            Experience
+            Testimonials
           </Link>
 
           {/* Auth-aware buttons */}
@@ -101,7 +100,7 @@ export default function Navbar() {
               {!user && (
                 <Link
                   href="/portal"
-                  className="rounded-md border border-white/20 px-4 py-2 text-white hover:border-amber-300 hover:text-amber-100"
+                  className="rounded px-4 py-2 bg-amber-400 text-slate-950 shadow-md transition duration-300 hover:bg-amber-300"
                 >
                   Portal
                 </Link>
@@ -111,13 +110,13 @@ export default function Navbar() {
                 <>
                   <Link
                     href={portalHref}
-                    className="rounded-md border border-white/20 px-4 py-2 text-white hover:border-amber-300 hover:text-amber-100"
+                    className="rounded px-4 py-2 bg-amber-400 text-slate-950 shadow-md transition duration-300 hover:bg-amber-300"
                   >
                     My Portal
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="rounded-md border border-red-400/40 px-4 py-2 text-red-100 transition hover:bg-red-500 hover:text-white"
+                    className="rounded px-4 py-2 bg-red-600 text-white shadow-md transition hover:bg-red-700"
                   >
                     Logout
                   </button>
@@ -126,14 +125,14 @@ export default function Navbar() {
             </>
           )}
 
-          <Link href="/contact-us" className="rounded-md bg-amber-400 px-4 py-2 text-slate-950 hover:bg-amber-300">
+          <Link href="/contact-us" className="text-stone-200 hover:text-amber-200">
             Contact
           </Link>
         </nav>
 
         {/* Mobile Menu Button */}
         <button
-          className="rounded-md border border-white/20 p-2 text-white md:hidden"
+          className="rounded p-1 text-white hover:text-amber-200 md:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
           aria-label="Toggle menu"
         >
@@ -165,7 +164,7 @@ export default function Navbar() {
 
       {/* Mobile Dropdown */}
       {menuOpen && (
-        <div className="space-y-3 border-t border-white/10 bg-slate-950 px-5 py-5 text-sm font-semibold uppercase md:hidden">
+        <div className="space-y-2 border-t border-slate-800 bg-slate-800 px-4 pb-4 pt-3 text-sm font-medium md:hidden">
           <Link
             href="/#about"
             className="block text-stone-200 hover:text-amber-200"
@@ -178,20 +177,20 @@ export default function Navbar() {
             className="block text-stone-200 hover:text-amber-200"
             onClick={() => setMenuOpen(false)}
           >
-            Practice Areas
+            Services
           </Link>
           <Link
             href="/#testimonials"
             className="block text-stone-200 hover:text-amber-200"
             onClick={() => setMenuOpen(false)}
           >
-            Experience
+            Testimonials
           </Link>
 
           {!loadingUser && !user && (
             <Link
               href="/portal"
-              className="block rounded-md border border-white/20 px-4 py-3 text-white hover:border-amber-300 hover:text-amber-100"
+              className="block rounded px-4 py-2 bg-amber-400 text-slate-950 shadow-md hover:bg-amber-300"
               onClick={() => setMenuOpen(false)}
             >
               Portal
@@ -202,13 +201,13 @@ export default function Navbar() {
             <>
               <Link
                 href={portalHref}
-                className="block rounded-md border border-white/20 px-4 py-3 text-white hover:border-amber-300 hover:text-amber-100"
+                className="block rounded px-4 py-2 bg-amber-400 text-slate-950 shadow-md hover:bg-amber-300"
                 onClick={() => setMenuOpen(false)}
               >
                 My Portal
               </Link>
               <button
-                className="mt-2 block w-full rounded-md border border-red-400/40 px-4 py-3 text-left text-red-100 hover:bg-red-500 hover:text-white"
+                className="mt-2 block w-full rounded px-4 py-2 text-left bg-red-600 text-white shadow-md hover:bg-red-700"
                 onClick={() => {
                   handleLogout();
                   setMenuOpen(false);
@@ -221,7 +220,7 @@ export default function Navbar() {
 
           <Link
             href="/contact-us"
-            className="block rounded-md bg-amber-400 px-4 py-3 text-slate-950 hover:bg-amber-300"
+            className="block text-stone-200 hover:text-amber-200"
             onClick={() => setMenuOpen(false)}
           >
             Contact
