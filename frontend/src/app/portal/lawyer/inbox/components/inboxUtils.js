@@ -36,6 +36,6 @@ export function getStatusBadgeClass(status) {
       ? "bg-amber-100 text-amber-700"
       : status === "In Progress"
       ? "bg-green-100 text-green-700"
-      : "bg-slate-200 text-slate-700"
+      : "bg-[#DDEAF2] text-[#245B83]"
   }`;
 }

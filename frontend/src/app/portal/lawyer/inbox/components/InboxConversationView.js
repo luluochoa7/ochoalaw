@@ -38,7 +38,7 @@ export default function InboxConversationView({
               <button
                 type="button"
                 onClick={onStartNewMessage}
-                className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
+                className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-[#245B83]"
               >
                 New Message
               </button>
@@ -55,7 +55,7 @@ export default function InboxConversationView({
         <button
           type="button"
           onClick={onBackToConversations}
-          className="mb-3 inline-flex text-sm font-medium text-slate-700 hover:underline lg:hidden"
+          className="mb-3 inline-flex text-sm font-medium text-[#245B83] hover:text-[#183F5F] hover:underline lg:hidden"
         >
           ← Conversations
         </button>
@@ -76,7 +76,7 @@ export default function InboxConversationView({
 
           <Link
             href={`/portal/lawyer/matters/${conversation.matter_id}#messages`}
-            className="inline-flex text-sm font-medium text-slate-700 hover:underline lg:shrink-0 lg:rounded-lg lg:border lg:border-slate-300 lg:bg-white lg:px-4 lg:py-2.5 lg:text-slate-700 lg:no-underline lg:hover:bg-slate-50"
+            className="inline-flex text-sm font-medium text-[#245B83] hover:text-[#183F5F] hover:underline lg:shrink-0 lg:rounded-lg lg:border lg:border-slate-300 lg:bg-white lg:px-4 lg:py-2.5 lg:text-slate-700 lg:no-underline lg:hover:bg-slate-50"
           >
             Open Workspace
           </Link>
@@ -111,7 +111,7 @@ export default function InboxConversationView({
               <button
                 type="button"
                 onClick={() => inputRef.current?.focus()}
-                className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700"
+                className="rounded-lg bg-[#245B83] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#183F5F]"
               >
                 Send First Message
               </button>

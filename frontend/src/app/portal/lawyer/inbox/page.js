@@ -302,7 +302,7 @@ function LawyerInboxContent() {
             <div>
               <Link
                 href="/portal/lawyer"
-                className="inline-flex text-sm text-slate-700 hover:underline"
+                className="inline-flex text-sm text-[#245B83] hover:text-[#183F5F] hover:underline"
               >
                 ← Back to dashboard
               </Link>
@@ -319,7 +319,7 @@ function LawyerInboxContent() {
             <button
               type="button"
               onClick={handleStartNewMessage}
-              className="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto"
+              className="w-full rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white hover:bg-[#245B83] sm:w-auto"
             >
               New Message
             </button>

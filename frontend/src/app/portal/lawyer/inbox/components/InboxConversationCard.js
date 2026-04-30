@@ -11,7 +11,7 @@ export default function InboxConversationCard({ item, selected, onSelect }) {
       onClick={() => onSelect(item)}
       className={`block w-full rounded-xl border p-4 text-left shadow-sm transition ${
         selected
-          ? "border-slate-500 bg-slate-50/80"
+          ? "border-[#245B83] bg-[#EEF5FA]"
           : "border-slate-200 bg-slate-50 hover:bg-slate-100"
       }`}
     >

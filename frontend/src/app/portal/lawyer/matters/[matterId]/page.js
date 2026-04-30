@@ -106,7 +106,7 @@ function getStatusBadgeClass(status) {
       ? "border-amber-200 bg-amber-50 text-amber-700"
       : s === "In Progress"
       ? "border-green-200 bg-green-50 text-green-700"
-      : "border-slate-300 bg-slate-50 text-slate-700"
+      : "border-[#B9CEDD] bg-[#EEF5FA] text-[#245B83]"
   }`;
 }
 
@@ -575,7 +575,7 @@ export default function LawyerMatterDetailPage({ params }) {
           <button
             type="button"
             onClick={() => router.push("/portal/lawyer")}
-            className="text-sm text-slate-700 hover:underline"
+            className="text-sm text-[#245B83] hover:text-[#183F5F] hover:underline"
           >
             ← Back to dashboard
           </button>
@@ -626,7 +626,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   value={matter.status || "Open"}
                   onChange={(e) => handleStatusChange(e.target.value)}
                   disabled={statusSaving}
-                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-slate-700 focus:ring-slate-700 disabled:opacity-60"
+                  className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[#245B83] focus:ring-[#245B83] disabled:opacity-60"
                 >
                   {STATUS_OPTIONS.map((status) => (
                     <option key={status} value={status}>
@@ -645,7 +645,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   value={descriptionDraft}
                   onChange={(e) => setDescriptionDraft(e.target.value)}
                   rows={6}
-                  className="mt-2 min-h-[180px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-slate-700 focus:ring-slate-700"
+                  className="mt-2 min-h-[180px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-[#245B83] focus:ring-[#245B83]"
                   placeholder="Add details for this matter..."
                 />
               </div>
@@ -655,7 +655,7 @@ export default function LawyerMatterDetailPage({ params }) {
                   type="button"
                   onClick={handleDescriptionSave}
                   disabled={descriptionSaving}
-                  className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                  className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-[#245B83] disabled:opacity-60"
                 >
                   {descriptionSaving ? "Saving..." : "Save description"}
                 </button>
@@ -714,7 +714,7 @@ export default function LawyerMatterDetailPage({ params }) {
                 type="button"
                 onClick={handleUploadDocument}
                 disabled={uploadBusy || !uploadFile}
-                className="w-full rounded-lg bg-slate-800 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                className="w-full rounded-lg bg-[#245B83] px-4 py-3 text-sm font-medium text-white hover:bg-[#183F5F] disabled:opacity-60"
               >
                 {uploadBusy ? "Uploading..." : "Upload document"}
               </button>
@@ -754,7 +754,7 @@ export default function LawyerMatterDetailPage({ params }) {
                       <button
                         type="button"
                         onClick={() => handleDownloadDocument(d)}
-                        className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                        className="rounded-lg bg-[#245B83] px-3 py-2 text-sm font-medium text-white hover:bg-[#183F5F]"
                       >
                         Download
                       </button>
@@ -785,7 +785,7 @@ export default function LawyerMatterDetailPage({ params }) {
               value={internalNoteContent}
               onChange={(e) => setInternalNoteContent(e.target.value)}
               rows={4}
-              className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-slate-700 focus:ring-slate-700"
+              className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-[#245B83] focus:ring-[#245B83]"
               placeholder="Add a private internal note..."
             />
 
@@ -795,7 +795,7 @@ export default function LawyerMatterDetailPage({ params }) {
               <button
                 type="submit"
                 disabled={internalNoteBusy}
-                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+                className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-[#245B83] disabled:opacity-60"
               >
                 {internalNoteBusy ? "Saving..." : "Add Internal Note"}
               </button>
@@ -845,7 +845,7 @@ export default function LawyerMatterDetailPage({ params }) {
               value={sharedUpdateContent}
               onChange={(e) => setSharedUpdateContent(e.target.value)}
               rows={4}
-              className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-slate-700 focus:ring-slate-700"
+              className="min-h-[140px] w-full rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-800 shadow-sm resize-y placeholder:text-slate-400 focus:border-[#245B83] focus:ring-[#245B83]"
               placeholder="Add a shared update..."
             />
 
@@ -855,7 +855,7 @@ export default function LawyerMatterDetailPage({ params }) {
               <button
                 type="submit"
                 disabled={sharedUpdateBusy}
-                className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                className="rounded-lg bg-[#245B83] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#183F5F] disabled:opacity-60"
               >
                 {sharedUpdateBusy ? "Saving..." : "Add Shared Update"}
               </button>
@@ -869,7 +869,7 @@ export default function LawyerMatterDetailPage({ params }) {
               sharedUpdates.map((n) => (
                 <div
                   key={n.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 shadow-sm"
+                  className="rounded-xl border border-[#B9CEDD] bg-[#EEF5FA] p-4 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-4 flex-wrap">
                     <p className="text-sm font-semibold text-slate-900">
@@ -920,7 +920,7 @@ export default function LawyerMatterDetailPage({ params }) {
                     <div
                       className={`max-w-[78%] rounded-2xl px-4 py-3 shadow-sm ${
                         isMine
-                          ? "bg-slate-800 text-white"
+                          ? "bg-[#245B83] text-white"
                           : "border border-slate-200 bg-white text-slate-800"
                       }`}
                     >
@@ -938,7 +938,7 @@ export default function LawyerMatterDetailPage({ params }) {
                       </p>
                       <p
                         className={`mt-1 text-xs ${
-                          isMine ? "text-slate-200" : "text-slate-500"
+                          isMine ? "text-[#DCEAF3]" : "text-slate-500"
                         }`}
                       >
                         {formatDateTime(msg.created_at)}
@@ -960,7 +960,7 @@ export default function LawyerMatterDetailPage({ params }) {
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Write a secure message..."
               maxLength={5000}
-              className="min-h-[76px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-slate-700 focus:ring-slate-700"
+              className="min-h-[76px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-[#245B83] focus:ring-[#245B83]"
             />
             {messagesError && messages.length > 0 && (
               <p className="mt-2 text-sm text-red-600">{messagesError}</p>
@@ -972,7 +972,7 @@ export default function LawyerMatterDetailPage({ params }) {
               <button
                 type="submit"
                 disabled={sendingMessage || !newMessage.trim()}
-                className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
+                className="rounded-lg bg-[#245B83] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#183F5F] disabled:opacity-60"
               >
                 {sendingMessage ? "Sending..." : "Send Message"}
               </button>

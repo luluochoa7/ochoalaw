@@ -50,7 +50,7 @@ export default function ContactUs() {
       <section className="mt-16 bg-gradient-to-br from-slate-900 via-slate-800 to-black">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-14 text-center">
           <h1 className="text-4xl font-bold text-white">Contact Us</h1>
-          <p className="mt-3 text-slate-200">
+          <p className="mt-3 text-[#DCEAF3]">
             We’re here to help. Fill out the form and we’ll get back to you shortly.
           </p>
         </div>
@@ -73,7 +73,7 @@ export default function ContactUs() {
                     name="name"
                     required
                     autoComplete="name"
-                    className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
+                    className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-[#245B83] focus:ring-[#245B83]"
                     placeholder="Your full name"
                   />
                 </div>
@@ -89,7 +89,7 @@ export default function ContactUs() {
                       name="email"
                       required
                       autoComplete="email"
-                      className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
+                      className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-[#245B83] focus:ring-[#245B83]"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -103,7 +103,7 @@ export default function ContactUs() {
                       id="phone"
                       name="phone"
                       autoComplete="tel"
-                      className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
+                      className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-[#245B83] focus:ring-[#245B83]"
                       placeholder="(555) 555-5555"
                     />
                   </div>
@@ -118,7 +118,7 @@ export default function ContactUs() {
                     name="message"
                     required
                     rows={5}
-                    className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
+                    className="mt-2 block w-full rounded-lg border-slate-300 bg-white px-4 py-3 shadow-sm focus:border-[#245B83] focus:ring-[#245B83]"
                     placeholder="How can we assist you?"
                   />
                 </div>
@@ -145,7 +145,7 @@ export default function ContactUs() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex items-center rounded-lg bg-slate-800 px-6 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="inline-flex items-center rounded-lg bg-[#245B83] px-6 py-3 font-medium text-white hover:bg-[#183F5F] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? "Submitting..." : "Submit"}
                   </button>
