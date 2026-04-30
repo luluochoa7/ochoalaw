@@ -114,12 +114,14 @@ export default function Home() {
 
       <section id="about" className="px-5 py-20 sm:px-8 lg:px-10">
         <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-          <div className="relative overflow-hidden rounded-lg bg-slate-900 shadow-2xl shadow-slate-950/15">
+          <div className="relative overflow-hidden rounded-lg bg-stone-100 shadow-2xl shadow-slate-950/15">
             <Image
               src="/titoPhoto.png"
               alt="Ochoa Lawyers attorney portrait"
               width={900}
               height={1054}
+              priority
+              sizes="(min-width: 1024px) 42vw, 100vw"
               className="aspect-[5/6] w-full object-cover object-top"
             />
             <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(15,23,42,0.92),rgba(15,23,42,0))] px-6 pb-6 pt-20 text-white">

@@ -172,13 +172,10 @@ export default function ContactUs() {
             </div>
           </div>
 
-          {/* Bottom links */}
-          <div className="mt-8 flex items-center justify-center gap-4">
+          {/* Bottom link */}
+          <div className="mt-8 flex items-center justify-center">
             <Link href="/" className="text-slate-700 hover:text-slate-900 underline underline-offset-4">
               ← Back to Home
-            </Link>
-            <Link href="#top" className="text-slate-700 hover:text-slate-900 underline underline-offset-4">
-              Back to Top ↑
             </Link>
           </div>
         </div>
