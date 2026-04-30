@@ -38,7 +38,7 @@ function statusBadgeClass(status) {
   if (s === "Closed") return "border border-red-200 bg-red-50 text-red-700";
   if (s === "Waiting on Client") return "border border-amber-200 bg-amber-50 text-amber-700";
   if (s === "In Progress") return "border border-green-200 bg-green-50 text-green-700";
-  if (s === "Open") return "border border-blue-200 bg-blue-50 text-blue-700";
+  if (s === "Open") return "border border-slate-300 bg-slate-50 text-slate-700";
   return "border border-slate-200 bg-slate-50 text-slate-700";
 }
 
@@ -132,7 +132,7 @@ function NotificationsPanel({
           <button
             type="button"
             onClick={onMarkAllRead}
-            className="shrink-0 text-sm font-medium text-blue-700 hover:underline"
+            className="shrink-0 text-sm font-medium text-slate-700 hover:underline"
           >
             Mark all read
           </button>
@@ -155,7 +155,7 @@ function NotificationsPanel({
               className={`w-full rounded-xl border p-4 text-left shadow-sm transition hover:bg-slate-100 ${
                 notification.is_read
                   ? "border-slate-200 bg-slate-50"
-                  : "border-blue-200 bg-blue-50/70"
+                  : "border-slate-300 bg-slate-50/80"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
@@ -173,7 +173,7 @@ function NotificationsPanel({
                   </p>
                 </div>
                 {!notification.is_read && (
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-blue-600" />
+                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-slate-800" />
                 )}
               </div>
             </button>
@@ -432,7 +432,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
           )}
 
           <button
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+            className="w-full rounded-lg bg-slate-800 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-60"
             disabled={!selectedMatterId || busy || !file}
             onClick={handleUpload}
             type="button"
@@ -473,7 +473,7 @@ function DocumentsPanel({ matters, loadingMatters }) {
                           }
                         }}
                         onClick={() => handleOpen(d)}
-                        className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                        className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
                       >
                         Open
                       </button>
@@ -806,7 +806,7 @@ export default function LawyerDashboardPage() {
             </p>
             <div className="mt-6 flex items-center gap-3 flex-wrap">
               <button
-                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700"
                 type="button"
                 onClick={() => {
                   setCreateError(null);
@@ -942,7 +942,7 @@ export default function LawyerDashboardPage() {
                 </div>
                 <Link
                   href="/portal/lawyer/inbox"
-                  className="mt-6 flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                  className="mt-6 flex w-full justify-center rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700"
                 >
                   Open Inbox
                 </Link>
@@ -990,7 +990,7 @@ export default function LawyerDashboardPage() {
                   onChange={(e) => setTitle(e.target.value)}
                   type="text"
                   required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="e.g., Lease Review"
                 />
               </div>
@@ -1012,7 +1012,7 @@ export default function LawyerDashboardPage() {
                     </div>
                     <button
                       type="button"
-                      className="text-sm text-blue-700 hover:underline"
+                      className="text-sm text-slate-700 hover:underline"
                       onClick={() => {
                         setSelectedClient(null);
                         setClientQuery("");
@@ -1028,7 +1028,7 @@ export default function LawyerDashboardPage() {
                       value={clientQuery}
                       onChange={(e) => setClientQuery(e.target.value)}
                       type="text"
-                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                       placeholder="Search by name or email..."
                     />
 
@@ -1083,7 +1083,7 @@ export default function LawyerDashboardPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="Add a short note about the matter…"
                 />
               </div>
@@ -1093,7 +1093,7 @@ export default function LawyerDashboardPage() {
               <button
                 type="submit"
                 disabled={createLoading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                className="w-full rounded-lg bg-slate-800 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
               >
                 {createLoading ? "Creating…" : "Create matter"}
               </button>
@@ -1131,7 +1131,7 @@ export default function LawyerDashboardPage() {
                   onChange={(e) => setInviteName(e.target.value)}
                   type="text"
                   required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="e.g., Jane Client"
                 />
               </div>
@@ -1145,7 +1145,7 @@ export default function LawyerDashboardPage() {
                   onChange={(e) => setInviteEmail(e.target.value)}
                   type="email"
                   required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="client@example.com"
                 />
               </div>
@@ -1156,7 +1156,7 @@ export default function LawyerDashboardPage() {
               <button
                 type="submit"
                 disabled={inviteLoading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                className="w-full rounded-lg bg-slate-800 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
               >
                 {inviteLoading ? "Sending..." : "Send invitation"}
               </button>

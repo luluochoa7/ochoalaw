@@ -101,7 +101,7 @@ function AcceptInviteContent() {
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
         <div className="container mx-auto px-4 py-14 text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-white">Client Invitation</h1>
-          <p className="mt-3 text-blue-100">
+          <p className="mt-3 text-slate-200">
             Set your password to access your secure client portal.
           </p>
         </div>
@@ -142,7 +142,7 @@ function AcceptInviteContent() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                       placeholder="Choose a secure password"
                     />
                   </div>
@@ -160,7 +160,7 @@ function AcceptInviteContent() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
-                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                      className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                       placeholder="Re-enter your password"
                     />
                   </div>
@@ -170,7 +170,7 @@ function AcceptInviteContent() {
                   <button
                     type="submit"
                     disabled={submitLoading}
-                    className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                    className="w-full rounded-lg bg-slate-800 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                   >
                     {submitLoading ? "Creating account..." : "Accept invitation"}
                   </button>
@@ -190,7 +190,7 @@ function AcceptInviteFallback() {
       <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
         <div className="container mx-auto px-4 py-14 text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-white">Client Invitation</h1>
-          <p className="mt-3 text-blue-100">Set your password to access your secure client portal.</p>
+          <p className="mt-3 text-slate-200">Set your password to access your secure client portal.</p>
         </div>
       </section>
       <section className="-mt-10 pb-16">

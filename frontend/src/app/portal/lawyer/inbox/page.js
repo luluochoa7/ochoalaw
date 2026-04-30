@@ -302,7 +302,7 @@ function LawyerInboxContent() {
             <div>
               <Link
                 href="/portal/lawyer"
-                className="inline-flex text-sm text-blue-700 hover:underline"
+                className="inline-flex text-sm text-slate-700 hover:underline"
               >
                 ← Back to dashboard
               </Link>

@@ -79,7 +79,7 @@ export default function NewMessagePanel({
             value={selectedMatterId}
             onChange={(e) => setSelectedMatterId(e.target.value)}
             disabled={mattersLoading || !matters.length}
-            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-blue-600 focus:ring-blue-600 disabled:bg-slate-100 disabled:text-slate-500"
+            className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 shadow-sm focus:border-slate-700 focus:ring-slate-700 disabled:bg-slate-100 disabled:text-slate-500"
           >
             <option value="">
               {mattersLoading ? "Loading matters..." : "Choose a matter..."}
@@ -107,7 +107,7 @@ export default function NewMessagePanel({
             onChange={(e) => setBody(e.target.value)}
             placeholder="Write a secure message..."
             maxLength={5000}
-            className="mt-2 min-h-[160px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-blue-600 focus:ring-blue-600"
+            className="mt-2 min-h-[160px] w-full resize-none rounded-lg border border-slate-300 px-4 py-3 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-slate-700 focus:ring-slate-700"
           />
         </div>
 
@@ -128,7 +128,7 @@ export default function NewMessagePanel({
           <button
             type="submit"
             disabled={sending || !selectedMatterId || !body.trim()}
-            className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {sending ? "Sending..." : "Send Message"}
           </button>

@@ -17,7 +17,7 @@ export default function MatterWorkspace({
             </p>
           </div>
 
-          <span className="rounded-full bg-blue-50 text-blue-700 text-xs px-3 py-1">
+          <span className="rounded-full bg-slate-50 text-slate-700 text-xs px-3 py-1">
             {matter.status}
           </span>
         </div>
@@ -46,7 +46,7 @@ export default function MatterWorkspace({
                 <span className="text-sm">{d.filename}</span>
                 <button
                   onClick={() => onDownload(d.id)}
-                  className="text-blue-600 text-sm hover:underline"
+                  className="text-slate-700 text-sm hover:underline"
                 >
                   Download
                 </button>

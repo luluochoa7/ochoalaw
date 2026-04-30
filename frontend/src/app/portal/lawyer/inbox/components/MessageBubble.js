@@ -9,7 +9,7 @@ export default function MessageBubble({ message, currentUserId }) {
       <div
         className={`max-w-[75%] rounded-2xl px-4 py-3 shadow-sm ${
           isLawyerMessage
-            ? "bg-blue-600 text-white"
+            ? "bg-slate-800 text-white"
             : "border border-slate-200 bg-white text-slate-800"
         }`}
       >
@@ -27,7 +27,7 @@ export default function MessageBubble({ message, currentUserId }) {
         </p>
         <p
           className={`mt-1 text-xs ${
-            isLawyerMessage ? "text-blue-100" : "text-slate-500"
+            isLawyerMessage ? "text-slate-200" : "text-slate-500"
           }`}
         >
           {formatMessageTime(message.created_at)}

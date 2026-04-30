@@ -102,7 +102,7 @@ export default function PortalPage() {
         <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-black">
           <div className="container mx-auto px-4 py-14 text-center">
             <h1 className="text-4xl font-bold text-white">Secure Portal Access</h1>
-            <p className="mt-3 text-blue-100">
+            <p className="mt-3 text-slate-200">
               Sign in or create an account to access your secure portal.
             </p>
           </div>
@@ -126,7 +126,7 @@ export default function PortalPage() {
                     name="email"
                     type="email"
                     required
-                    className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                    className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                     placeholder="you@example.com"
                   />
                 </div>
@@ -140,7 +140,7 @@ export default function PortalPage() {
                     name="password"
                     type="password"
                     required
-                    className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                    className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                     placeholder="Your password"
                   />
                 </div>
@@ -154,7 +154,7 @@ export default function PortalPage() {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="w-full rounded-lg bg-slate-800 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
                 >
                   {loginLoading ? "Signing in..." : "Sign In"}
                 </button>
@@ -210,7 +210,7 @@ export default function PortalPage() {
                   name="name"
                   type="text"
                   required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="Your full name"
                 />
               </div>
@@ -224,7 +224,7 @@ export default function PortalPage() {
                   name="email"
                   type="email"
                   required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="you@example.com"
                 />
               </div>
@@ -238,7 +238,7 @@ export default function PortalPage() {
                   name="password"
                   type="password"
                   required
-                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-blue-600 focus:ring-blue-600"
+                  className="mt-2 w-full rounded-lg border-slate-300 px-4 py-3 shadow-sm focus:border-slate-700 focus:ring-slate-700"
                   placeholder="Choose a secure password"
                 />
               </div>
@@ -250,7 +250,7 @@ export default function PortalPage() {
               <button
                 type="submit"
                 disabled={signupLoading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                className="w-full rounded-lg bg-slate-800 px-4 py-3 font-medium text-white hover:bg-slate-700 disabled:opacity-60"
               >
                 {signupLoading ? "Creating account..." : "Create Account"}
               </button>
