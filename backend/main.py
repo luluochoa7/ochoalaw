@@ -71,7 +71,7 @@ COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", ".ochoalawyers.com").strip() or None
 COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "lax").lower()
 DEFAULT_FRONTEND_BASE_URL = "https://ochoalawyers.com"
 DEFAULT_SECURE_ACTIVITY_EMAIL_COOLDOWN_SECONDS = 15 * 60
-_secure_activity_email_sent_at: dict[tuple[int, int, str], float] = {}
+_secure_activity_email_sent_at: dict[tuple[int, str], float] = {}
 
 MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25MB FILE SIZE LIMIT
 
@@ -835,14 +835,13 @@ For your privacy, this email does not include message, update, or case details.
 def should_send_secure_activity_email(
     *,
     recipient_id: int,
-    matter_id: int,
     email_type: str,
 ) -> bool:
     cooldown_seconds = get_secure_activity_email_cooldown_seconds()
     if cooldown_seconds <= 0:
         return True
 
-    key = (recipient_id, matter_id, email_type)
+    key = (recipient_id, email_type)
     last_sent_at = _secure_activity_email_sent_at.get(key)
     if last_sent_at is None:
         return True
@@ -853,12 +852,11 @@ def should_send_secure_activity_email(
 def mark_secure_activity_email_sent(
     *,
     recipient_id: int,
-    matter_id: int,
     email_type: str,
 ):
     now = time.time()
     cooldown_seconds = get_secure_activity_email_cooldown_seconds()
-    _secure_activity_email_sent_at[(recipient_id, matter_id, email_type)] = now
+    _secure_activity_email_sent_at[(recipient_id, email_type)] = now
 
     if len(_secure_activity_email_sent_at) > 1000 and cooldown_seconds > 0:
         stale_before = now - cooldown_seconds
@@ -887,7 +885,6 @@ def send_matter_activity_email_to_recipient(
             return
         if not should_send_secure_activity_email(
             recipient_id=recipient.id,
-            matter_id=matter.id,
             email_type=email_type,
         ):
             return
@@ -907,7 +904,6 @@ def send_matter_activity_email_to_recipient(
         )
         mark_secure_activity_email_sent(
             recipient_id=recipient.id,
-            matter_id=matter.id,
             email_type=email_type,
         )
     except Exception as email_error:
