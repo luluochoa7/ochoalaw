@@ -154,7 +154,7 @@ export default function PortalPage() {
                 <button
                   type="submit"
                   disabled={loginLoading}
-                  className="w-full rounded-lg bg-[#245B83] px-4 py-3 font-medium text-white hover:bg-[#183F5F] disabled:opacity-60"
+                  className="w-full rounded-lg bg-amber-400 px-4 py-3 font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-60"
                 >
                   {loginLoading ? "Signing in..." : "Sign In"}
                 </button>

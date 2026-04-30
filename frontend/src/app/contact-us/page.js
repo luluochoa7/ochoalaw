@@ -145,7 +145,7 @@ export default function ContactUs() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="inline-flex items-center rounded-lg bg-[#245B83] px-6 py-3 font-medium text-white hover:bg-[#183F5F] disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="inline-flex items-center rounded-lg bg-amber-400 px-6 py-3 font-semibold text-slate-950 hover:bg-amber-300 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? "Submitting..." : "Submit"}
                   </button>
