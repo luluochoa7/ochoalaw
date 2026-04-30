@@ -134,21 +134,21 @@ export async function signup(name, email, password) {
   return res.json(); // { message, user_id }
 }
 
-export async function submitContactForm({ name, email, phone, message }) {
-  const body = new FormData();
-  body.append("name", name);
-  body.append("email", email);
-  if (phone) body.append("phone", phone);
-  body.append("message", message);
-
-  const res = await fetch(`${API}/contact`, {
+export async function submitContactForm({ name, email, phone, matterType, message }) {
+  const res = await fetch(`${API}/intake-submissions`, {
     method: "POST",
-    headers: { "x-requested-with": "fetch" },
-    body,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      email,
+      phone: phone || null,
+      matter_type: matterType || null,
+      description: message,
+    }),
   });
 
   if (!res.ok) {
-    let detail = "Failed to submit contact form.";
+    let detail = "Failed to submit your inquiry.";
     try {
       const data = await res.json();
       if (typeof data?.detail === "string" && data.detail.trim()) {
@@ -158,6 +158,66 @@ export async function submitContactForm({ name, email, phone, message }) {
       const txt = await res.text().catch(() => "");
       if (txt) detail = txt;
     }
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+export async function fetchLawyerIntakeSubmissions() {
+  const res = await authFetch("/lawyer/intake-submissions");
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    console.error("fetchLawyerIntakeSubmissions failed:", res.status, txt);
+    throw new Error("Failed to load intake submissions");
+  }
+  return res.json();
+}
+
+export async function updateIntakeSubmissionStatus(intakeId, status) {
+  const res = await authFetch(`/lawyer/intake-submissions/${intakeId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+
+  if (!res.ok) {
+    let detail = "Failed to update intake status";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string" && data.detail.trim()) {
+        detail = data.detail;
+      }
+    } catch {
+      const txt = await res.text().catch(() => "");
+      if (txt) detail = txt;
+    }
+    console.error("updateIntakeSubmissionStatus failed:", res.status, detail);
+    throw new Error(detail);
+  }
+
+  return res.json();
+}
+
+export async function convertIntakeToMatter(intakeId, payload) {
+  const res = await authFetch(`/lawyer/intake-submissions/${intakeId}/convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let detail = "Failed to convert intake submission";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string" && data.detail.trim()) {
+        detail = data.detail;
+      }
+    } catch {
+      const txt = await res.text().catch(() => "");
+      if (txt) detail = txt;
+    }
+    console.error("convertIntakeToMatter failed:", res.status, detail);
     throw new Error(detail);
   }
 

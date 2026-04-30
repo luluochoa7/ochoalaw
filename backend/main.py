@@ -24,6 +24,7 @@ from models import (
     ContactSubmission,
     Document,
     DocumentAccessToken,
+    IntakeSubmission,
     Matter,
     MatterEvent,
     MatterMessage,
@@ -88,11 +89,13 @@ ALLOWED_CONTENT_TYPES = {
 RATE_LIMIT_WINDOW_SECONDS = 60
 RATE_LIMITS = {
     "auth_login": (10, RATE_LIMIT_WINDOW_SECONDS),
+    "intake_submission": (5, RATE_LIMIT_WINDOW_SECONDS),
     "password_reset": (5, RATE_LIMIT_WINDOW_SECONDS),
     "upload_presign": (30, RATE_LIMIT_WINDOW_SECONDS),
     "invite": (20, RATE_LIMIT_WINDOW_SECONDS),
 }
 rate_limit_store: dict[str, list[float]] = {}
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 AWS_REGION = os.getenv("AWS_REGION", "us-east-2")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
@@ -318,6 +321,7 @@ CSRF_EXEMPT_PATHS = {
     "/login",
     "/signup",
     "/contact",
+    "/intake-submissions",
     "/invitations/accept",
     "/password-reset/request",
     "/password-reset/confirm",
@@ -676,6 +680,22 @@ def serialize_notification(notification: Notification):
         "is_read": notification.is_read,
         "created_at": notification.created_at.isoformat() if notification.created_at else None,
         "read_at": notification.read_at.isoformat() if notification.read_at else None,
+    }
+
+
+def serialize_intake_submission(intake: IntakeSubmission):
+    return {
+        "id": intake.id,
+        "name": intake.name,
+        "email": intake.email,
+        "phone": intake.phone,
+        "matter_type": intake.matter_type,
+        "description": intake.description,
+        "status": intake.status,
+        "assigned_lawyer_id": intake.assigned_lawyer_id,
+        "converted_matter_id": intake.converted_matter_id,
+        "created_at": intake.created_at.isoformat() if intake.created_at else None,
+        "updated_at": intake.updated_at.isoformat() if intake.updated_at else None,
     }
 
 
@@ -1221,6 +1241,32 @@ class MatterCreate(BaseModel):
 
 
 ALLOWED_MATTER_STATUSES = {"Open", "In Progress", "Waiting on Client", "Closed"}
+VALID_INTAKE_STATUSES = {
+    "new",
+    "reviewing",
+    "contacted",
+    "converted",
+    "closed",
+    "spam",
+}
+
+
+class IntakeSubmissionCreate(BaseModel):
+    name: str
+    email: str
+    phone: str | None = None
+    matter_type: str | None = None
+    description: str
+
+
+class IntakeStatusUpdate(BaseModel):
+    status: str
+
+
+class IntakeConvertRequest(BaseModel):
+    matter_title: str | None = None
+    matter_description: str | None = None
+    send_invitation: bool = True
 
 
 class ClientOut(BaseModel):
@@ -1321,6 +1367,345 @@ class DocumentOut(BaseModel):
     created_at: Optional[str]
 
 
+def get_invitation_link(token: str) -> str:
+    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
+    return f"{frontend_base}/portal/accept-invite?token={token}"
+
+
+def create_client_invitation_record(
+    *,
+    db: Session,
+    name: str,
+    email: str,
+    invited_by_user_id: int,
+    request: Request,
+    metadata: dict | None = None,
+) -> ClientInvitation:
+    token = token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    invitation = ClientInvitation(
+        name=name,
+        email=email,
+        token=token,
+        invited_by_user_id=invited_by_user_id,
+        expires_at=expires_at,
+    )
+    db.add(invitation)
+    db.flush()
+    log_audit_event(
+        db,
+        "invitation_sent",
+        user_id=invited_by_user_id,
+        resource_type="client_invitation",
+        resource_id=invitation.id,
+        request=request,
+        metadata={"email": email, **(metadata or {})},
+    )
+    return invitation
+
+
+def send_client_invitation_email(invitation: ClientInvitation):
+    invite_link = get_invitation_link(invitation.token)
+    safe_name = html.escape(invitation.name)
+    safe_invite_link = html.escape(invite_link, quote=True)
+
+    send_transactional_email(
+        to_email=invitation.email,
+        subject="You have been invited to Ochoa Lawyers Portal",
+        html_body=f"""
+            <h2>You have been invited</h2>
+            <p>Hello {safe_name},</p>
+            <p>You have been invited to access the Ochoa Lawyers client portal.</p>
+            <p><a href="{safe_invite_link}">Click here to set your password and access your portal</a></p>
+            <p>This link expires in 7 days.</p>
+        """,
+        text_body=(
+            f"Hello {invitation.name},\n\n"
+            f"You have been invited to access the Ochoa Lawyers client portal.\n\n"
+            f"Use this link to set your password:\n{invite_link}\n\n"
+            f"This link expires in 7 days."
+        ),
+    )
+
+
+@app.post("/intake-submissions", status_code=201)
+def create_intake_submission(
+    body: IntakeSubmissionCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    enforce_rate_limit(request, "intake_submission")
+
+    name = body.name.strip()
+    email = body.email.strip().lower()
+    phone = body.phone.strip() if body.phone else None
+    matter_type = body.matter_type.strip() if body.matter_type else None
+    description = body.description.strip()
+
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+    if not EMAIL_PATTERN.match(email):
+        raise HTTPException(status_code=400, detail="Valid email is required")
+    if not description:
+        raise HTTPException(status_code=400, detail="Description is required")
+    if len(name) > 200:
+        raise HTTPException(status_code=400, detail="Name is too long")
+    if len(email) > 320:
+        raise HTTPException(status_code=400, detail="Email is too long")
+    if phone and len(phone) > 50:
+        raise HTTPException(status_code=400, detail="Phone is too long")
+    if matter_type and len(matter_type) > 100:
+        raise HTTPException(status_code=400, detail="Matter type is too long")
+    if len(description) > 5000:
+        raise HTTPException(status_code=400, detail="Description too long")
+
+    intake = IntakeSubmission(
+        name=name,
+        email=email,
+        phone=phone,
+        matter_type=matter_type,
+        description=description,
+        status="new",
+    )
+
+    db.add(intake)
+    db.flush()
+    log_audit_event(
+        db=db,
+        event_type="intake_submission_created",
+        resource_type="intake_submission",
+        resource_id=intake.id,
+        request=request,
+        metadata={
+            "email": email,
+            "matter_type": matter_type,
+        },
+    )
+    db.commit()
+    db.refresh(intake)
+
+    return {
+        "message": "Your inquiry has been submitted.",
+        "intake_id": intake.id,
+    }
+
+
+@app.get("/lawyer/intake-submissions")
+def list_intake_submissions(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    submissions = (
+        db.query(IntakeSubmission)
+        .order_by(IntakeSubmission.created_at.desc())
+        .all()
+    )
+
+    return [serialize_intake_submission(i) for i in submissions]
+
+
+@app.patch("/lawyer/intake-submissions/{intake_id}")
+def update_intake_submission_status(
+    intake_id: int,
+    body: IntakeStatusUpdate,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    next_status = body.status.strip().lower()
+    if next_status not in VALID_INTAKE_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid intake status")
+
+    intake = db.query(IntakeSubmission).filter(IntakeSubmission.id == intake_id).first()
+    if not intake:
+        raise HTTPException(status_code=404, detail="Intake submission not found")
+    if next_status == "converted" and not intake.converted_matter_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Use the conversion flow to mark an intake as converted",
+        )
+    if intake.converted_matter_id and next_status != "converted":
+        raise HTTPException(
+            status_code=400,
+            detail="Converted intake submissions cannot be moved to another status",
+        )
+
+    old_status = intake.status
+    intake.status = next_status
+    if not intake.assigned_lawyer_id and next_status in {"reviewing", "contacted"}:
+        intake.assigned_lawyer_id = user.id
+
+    log_audit_event(
+        db=db,
+        event_type="intake_status_changed",
+        user_id=user.id,
+        resource_type="intake_submission",
+        resource_id=intake.id,
+        request=request,
+        metadata={
+            "old_status": old_status,
+            "new_status": next_status,
+        },
+    )
+
+    db.commit()
+    db.refresh(intake)
+    return serialize_intake_submission(intake)
+
+
+@app.post("/lawyer/intake-submissions/{intake_id}/convert", status_code=201)
+def convert_intake_submission(
+    intake_id: int,
+    body: IntakeConvertRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "lawyer":
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    intake = db.query(IntakeSubmission).filter(IntakeSubmission.id == intake_id).first()
+    if not intake:
+        raise HTTPException(status_code=404, detail="Intake submission not found")
+
+    if intake.converted_matter_id:
+        raise HTTPException(status_code=400, detail="Intake submission has already been converted")
+
+    default_title_prefix = intake.matter_type.strip() if intake.matter_type else "Matter"
+    matter_title = (
+        body.matter_title.strip()
+        if body.matter_title and body.matter_title.strip()
+        else f"{default_title_prefix} - {intake.name}"
+    )
+    if not matter_title:
+        raise HTTPException(status_code=400, detail="Matter title is required")
+    if len(matter_title) > 200:
+        raise HTTPException(status_code=400, detail="Matter title is too long")
+
+    if body.matter_description is None:
+        matter_description = intake.description[:1000]
+    else:
+        matter_description = body.matter_description.strip()
+        if len(matter_description) > 1000:
+            raise HTTPException(status_code=400, detail="Matter description is too long")
+    matter_description = matter_description or None
+
+    client = db.query(User).filter(User.email == intake.email.lower()).first()
+    client_created = False
+    if client:
+        if client.role != "client":
+            raise HTTPException(
+                status_code=400,
+                detail="An account with this email already exists and is not a client",
+            )
+    else:
+        temp_password = token_urlsafe(32)
+        client = User(
+            name=intake.name,
+            email=intake.email.lower(),
+            role="client",
+            password_hash=hash_password(temp_password),
+        )
+        db.add(client)
+        db.flush()
+        client_created = True
+
+    matter = Matter(
+        title=matter_title,
+        description=matter_description,
+        status="Open",
+        lawyer_id=user.id,
+        client_id=client.id,
+    )
+    db.add(matter)
+    db.flush()
+
+    intake.status = "converted"
+    intake.converted_matter_id = matter.id
+    intake.assigned_lawyer_id = user.id
+
+    create_matter_event(
+        db=db,
+        matter_id=matter.id,
+        event_type="matter_created",
+        message=f"Matter created from intake submission #{intake.id} by {user.name}.",
+        user_id=user.id,
+    )
+    log_audit_event(
+        db=db,
+        event_type="intake_converted_to_matter",
+        user_id=user.id,
+        resource_type="intake_submission",
+        resource_id=intake.id,
+        request=request,
+        metadata={
+            "matter_id": matter.id,
+            "client_id": client.id,
+            "client_created": client_created,
+            "send_invitation": body.send_invitation,
+        },
+    )
+
+    invitation = None
+    invitation_skipped_reason = None
+    if body.send_invitation:
+        if client_created:
+            invitation = create_client_invitation_record(
+                db=db,
+                name=client.name,
+                email=client.email,
+                invited_by_user_id=user.id,
+                request=request,
+                metadata={
+                    "source": "intake_conversion",
+                    "intake_id": intake.id,
+                    "matter_id": matter.id,
+                },
+            )
+        else:
+            invitation_skipped_reason = "client_account_exists"
+
+    db.commit()
+    db.refresh(intake)
+    db.refresh(matter)
+    db.refresh(client)
+
+    invitation_sent = False
+    if invitation:
+        try:
+            send_client_invitation_email(invitation)
+            invitation_sent = True
+        except Exception as email_error:
+            print(f"Intake conversion invitation email failed: {email_error}")
+
+    return {
+        "intake": serialize_intake_submission(intake),
+        "matter": {
+            "id": matter.id,
+            "title": matter.title,
+            "status": matter.status,
+            "description": matter.description,
+            "client_id": matter.client_id,
+            "lawyer_id": matter.lawyer_id,
+            "client_name": client.name,
+            "lawyer_name": user.name,
+            "created_at": matter.created_at.isoformat() if matter.created_at else None,
+        },
+        "client_created": client_created,
+        "invitation_sent": invitation_sent,
+        "invitation_skipped_reason": invitation_skipped_reason,
+    }
+
+
 @app.get("/lawyer/clients", response_model=list[ClientOut])
 def search_clients(
     query: str = Query(..., min_length=1),
@@ -1368,56 +1753,24 @@ def create_client_invitation(
 
     if not email or not name:
         raise HTTPException(status_code=400, detail="Name and email are required")
+    if not EMAIL_PATTERN.match(email):
+        raise HTTPException(status_code=400, detail="Valid email is required")
 
     existing_user = db.query(User).filter(User.email == email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="A user with this email already exists")
 
-    token = token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-
-    invitation = ClientInvitation(
+    invitation = create_client_invitation_record(
+        db=db,
         name=name,
         email=email,
-        token=token,
         invited_by_user_id=user.id,
-        expires_at=expires_at,
-    )
-
-    db.add(invitation)
-    db.flush()
-    log_audit_event(
-        db,
-        "invitation_sent",
-        user_id=user.id,
-        resource_type="client_invitation",
-        resource_id=invitation.id,
         request=request,
-        metadata={"email": email},
     )
     db.commit()
     db.refresh(invitation)
 
-    frontend_base = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000").rstrip("/")
-    invite_link = f"{frontend_base}/portal/accept-invite?token={token}"
-
-    send_transactional_email(
-        to_email=email,
-        subject="You have been invited to Ochoa Lawyers Portal",
-        html_body=f"""
-            <h2>You have been invited</h2>
-            <p>Hello {name},</p>
-            <p>You have been invited to access the Ochoa Lawyers client portal.</p>
-            <p><a href="{invite_link}">Click here to set your password and access your portal</a></p>
-            <p>This link expires in 7 days.</p>
-        """,
-        text_body=(
-            f"Hello {name},\n\n"
-            f"You have been invited to access the Ochoa Lawyers client portal.\n\n"
-            f"Use this link to set your password:\n{invite_link}\n\n"
-            f"This link expires in 7 days."
-        ),
-    )
+    send_client_invitation_email(invitation)
 
     return {
         "id": invitation.id,
@@ -1462,17 +1815,21 @@ def accept_client_invitation(
         raise HTTPException(status_code=400, detail="Invitation has expired")
 
     existing_user = db.query(User).filter(User.email == invitation.email).first()
-    if existing_user:
+    if existing_user and existing_user.role != "client":
         raise HTTPException(status_code=400, detail="A user with this email already exists")
 
-    user = User(
-        name=invitation.name,
-        email=invitation.email,
-        password_hash=hash_password(body.password),
-        role="client",
-    )
-    db.add(user)
-    db.flush()
+    if existing_user:
+        user = existing_user
+        user.password_hash = hash_password(body.password)
+    else:
+        user = User(
+            name=invitation.name,
+            email=invitation.email,
+            password_hash=hash_password(body.password),
+            role="client",
+        )
+        db.add(user)
+        db.flush()
 
     invitation.accepted_at = datetime.now(timezone.utc)
 

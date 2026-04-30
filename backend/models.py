@@ -13,6 +13,53 @@ class ContactSubmission(Base):
     message = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=func.now())
 
+
+class IntakeSubmission(Base):
+    __tablename__ = "intake_submissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False, index=True)
+    phone = Column(String, nullable=True)
+    matter_type = Column(String, nullable=True)
+    description = Column(Text, nullable=False)
+    status = Column(
+        String,
+        nullable=False,
+        default="new",
+        index=True,
+    )
+    assigned_lawyer_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True,
+        index=True,
+    )
+    converted_matter_id = Column(
+        Integer,
+        ForeignKey("matters.id"),
+        nullable=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    assigned_lawyer = relationship(
+        "User",
+        foreign_keys=[assigned_lawyer_id],
+    )
+    converted_matter = relationship(
+        "Matter",
+        foreign_keys=[converted_matter_id],
+    )
+
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)

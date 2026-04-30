@@ -934,6 +934,23 @@ export default function LawyerDashboardPage() {
               <section className="rounded-2xl border bg-white p-6 shadow-xl">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">
+                    Client Intake
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Review new inquiries and convert qualified leads into matters.
+                  </p>
+                </div>
+                <Link
+                  href="/portal/lawyer/intake"
+                  className="mt-6 flex w-full justify-center rounded-lg bg-[#245B83] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#183F5F]"
+                >
+                  Open Intake Queue
+                </Link>
+              </section>
+
+              <section className="rounded-2xl border bg-white p-6 shadow-xl">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">
                     Inbox & Communication
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-slate-600">

@@ -26,6 +26,7 @@ export default function ContactUs() {
     const name = String(formData.get("name") || "").trim();
     const email = String(formData.get("email") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
+    const matterType = String(formData.get("matter_type") || "").trim();
     const message = String(formData.get("message") || "").trim();
 
     if (!name || !email || !message) {
@@ -35,7 +36,7 @@ export default function ContactUs() {
 
     setIsSubmitting(true);
     try {
-      await submitContactForm({ name, email, phone, message });
+      await submitContactForm({ name, email, phone, matterType, message });
       router.push("/thank-you");
     } catch (err) {
       setSubmitError(err?.message || "Failed to submit the form.");
@@ -168,6 +169,20 @@ export default function ContactUs() {
                         placeholder="(555) 555-5555"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="matter_type" className="block text-sm font-medium text-slate-800">
+                      Matter type <span className="font-normal text-slate-500">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="matter_type"
+                      name="matter_type"
+                      autoComplete="off"
+                      className="mt-2 block w-full border-b border-slate-300 bg-transparent px-0 py-3 text-sm text-slate-950 placeholder:text-slate-400 focus:border-[#245B83] focus:ring-0"
+                      placeholder="Personal injury, family, business..."
+                    />
                   </div>
 
                   <div>
