@@ -7,15 +7,19 @@ html {
   scroll-behavior: smooth;
 }
 
+body {
+  font-family: "Avenir Next", Avenir, "Segoe UI", Arial, sans-serif;
+}
+
 /* Remove the old manual body colors (we're using Tailwind on <body>) */
 /* Keep a clean, consistent base look */
 @layer base {
   ::selection {
-    @apply bg-blue-600 text-white;
+    @apply bg-amber-300 text-slate-950;
   }
 
   h1, h2, h3 {
-    @apply tracking-tight;
+    @apply tracking-normal;
   }
 
   a {

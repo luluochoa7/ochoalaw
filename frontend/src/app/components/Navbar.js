@@ -73,23 +73,26 @@ export default function Navbar() {
     : "/portal";
 
   return (
-    <header className="bg-gray-800 text-white fixed top-0 left-0 w-full z-50 shadow-md">
-      <div className="container mx-auto flex justify-between items-center p-4">
+    <header className="fixed left-0 top-0 z-50 w-full border-b border-white/10 bg-slate-950/[0.92] text-white shadow-xl shadow-slate-950/20 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 sm:px-8 lg:px-10">
         {/* Logo */}
-        <div className="text-xl font-bold">
-          <Link href="/">Ochoa Lawyers</Link>
+        <div>
+          <Link href="/" className="block text-lg font-semibold uppercase text-white">
+            Ochoa Lawyers
+          </Link>
+          <p className="hidden text-xs uppercase text-amber-200 sm:block">Chicago legal counsel</p>
         </div>
 
         {/* Desktop Menu */}
-        <nav className="hidden md:flex space-x-6 items-center">
-          <Link href="/#about" className="hover:text-blue-300">
+        <nav className="hidden items-center gap-7 text-sm font-semibold uppercase md:flex">
+          <Link href="/#about" className="text-stone-200 hover:text-amber-200">
             About
           </Link>
-          <Link href="/#services" className="hover:text-blue-300">
-            Services
+          <Link href="/#services" className="text-stone-200 hover:text-amber-200">
+            Practice Areas
           </Link>
-          <Link href="/#testimonials" className="hover:text-blue-300">
-            Testimonials
+          <Link href="/#testimonials" className="text-stone-200 hover:text-amber-200">
+            Experience
           </Link>
 
           {/* Auth-aware buttons */}
@@ -98,7 +101,7 @@ export default function Navbar() {
               {!user && (
                 <Link
                   href="/portal"
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 rounded shadow-md transition duration-300"
+                  className="rounded-md border border-white/20 px-4 py-2 text-white hover:border-amber-300 hover:text-amber-100"
                 >
                   Portal
                 </Link>
@@ -108,13 +111,13 @@ export default function Navbar() {
                 <>
                   <Link
                     href={portalHref}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 rounded shadow-md transition duration-300"
+                    className="rounded-md border border-white/20 px-4 py-2 text-white hover:border-amber-300 hover:text-amber-100"
                   >
                     My Portal
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="ml-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded shadow-md transition text-white"
+                    className="rounded-md border border-red-400/40 px-4 py-2 text-red-100 transition hover:bg-red-500 hover:text-white"
                   >
                     Logout
                   </button>
@@ -123,15 +126,16 @@ export default function Navbar() {
             </>
           )}
 
-          <Link href="/contact-us" className="hover:text-blue-300">
+          <Link href="/contact-us" className="rounded-md bg-amber-400 px-4 py-2 text-slate-950 hover:bg-amber-300">
             Contact
           </Link>
         </nav>
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden focus:outline-none"
+          className="rounded-md border border-white/20 p-2 text-white md:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Toggle menu"
         >
           <svg
             className="w-6 h-6"
@@ -161,33 +165,33 @@ export default function Navbar() {
 
       {/* Mobile Dropdown */}
       {menuOpen && (
-        <div className="md:hidden bg-gray-700 px-4 pb-4 space-y-2">
+        <div className="space-y-3 border-t border-white/10 bg-slate-950 px-5 py-5 text-sm font-semibold uppercase md:hidden">
           <Link
             href="/#about"
-            className="block hover:text-blue-300"
+            className="block text-stone-200 hover:text-amber-200"
             onClick={() => setMenuOpen(false)}
           >
             About
           </Link>
           <Link
             href="/#services"
-            className="block hover:text-blue-300"
+            className="block text-stone-200 hover:text-amber-200"
             onClick={() => setMenuOpen(false)}
           >
-            Services
+            Practice Areas
           </Link>
           <Link
             href="/#testimonials"
-            className="block hover:text-blue-300"
+            className="block text-stone-200 hover:text-amber-200"
             onClick={() => setMenuOpen(false)}
           >
-            Testimonials
+            Experience
           </Link>
 
           {!loadingUser && !user && (
             <Link
               href="/portal"
-              className="block px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 rounded shadow-md"
+              className="block rounded-md border border-white/20 px-4 py-3 text-white hover:border-amber-300 hover:text-amber-100"
               onClick={() => setMenuOpen(false)}
             >
               Portal
@@ -198,13 +202,13 @@ export default function Navbar() {
             <>
               <Link
                 href={portalHref}
-                className="block px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-600 hover:to-blue-500 rounded shadow-md"
+                className="block rounded-md border border-white/20 px-4 py-3 text-white hover:border-amber-300 hover:text-amber-100"
                 onClick={() => setMenuOpen(false)}
               >
                 My Portal
               </Link>
               <button
-                className="block w-full text-left px-4 py-2 bg-red-600 hover:bg-red-700 rounded shadow-md text-white mt-2"
+                className="mt-2 block w-full rounded-md border border-red-400/40 px-4 py-3 text-left text-red-100 hover:bg-red-500 hover:text-white"
                 onClick={() => {
                   handleLogout();
                   setMenuOpen(false);
@@ -217,7 +221,7 @@ export default function Navbar() {
 
           <Link
             href="/contact-us"
-            className="block hover:text-blue-300"
+            className="block rounded-md bg-amber-400 px-4 py-3 text-slate-950 hover:bg-amber-300"
             onClick={() => setMenuOpen(false)}
           >
             Contact
